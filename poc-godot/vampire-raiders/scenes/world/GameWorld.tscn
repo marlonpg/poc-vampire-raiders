@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://4lxpvhcjobee"]
+[gd_scene load_steps=6 format=3 uid="uid://4lxpvhcjobee"]
 
 [ext_resource type="PackedScene" uid="uid://bxqvh5yjwxfyh" path="res://scenes/player/Player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/world/grid_background.gd" id="2_grid"]
 [ext_resource type="Script" path="res://scripts/managers/enemy_spawner.gd" id="3_spawner"]
 [ext_resource type="PackedScene" uid="uid://c8yqm3xr5vn2w" path="res://scenes/enemies/BasicEnemy.tscn" id="4_enemy"]
+[ext_resource type="PackedScene" uid="uid://c3xm9yr5vn8w3" path="res://scenes/ui/HUD.tscn" id="5_hud"]
 
 [node name="GameWorld" type="Node2D"]
 
@@ -26,3 +27,5 @@ script = ExtResource("3_spawner")
 enemy_scene = ExtResource("4_enemy")
 initial_enemy_count = 400
 map_size = 100
+
+[node name="HUD" parent="." instance=ExtResource("5_hud")]
