@@ -14,6 +14,8 @@ signal level_up(new_level: int)
 signal health_changed(current_health: int, max_health: int)
 signal player_died
 
+@onready var inventory = $Inventory
+
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health

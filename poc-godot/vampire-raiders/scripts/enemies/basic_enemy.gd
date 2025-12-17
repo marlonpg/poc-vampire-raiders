@@ -5,6 +5,8 @@ extends CharacterBody2D
 @export var aggro_range: float = 512.0
 @export var damage: int = 10
 @export var xp_gem_scene: PackedScene
+@export var loot_scene: PackedScene
+@export var loot_drop_chance: float = 0.1
 
 var player: CharacterBody2D
 var damage_cooldown: float = 0.0
@@ -45,3 +47,8 @@ func drop_xp() -> void:
 		var gem = xp_gem_scene.instantiate()
 		gem.global_position = global_position
 		get_tree().root.add_child(gem)
+	
+	if loot_scene and randf() < loot_drop_chance:
+		var loot = loot_scene.instantiate()
+		loot.global_position = global_position
+		get_tree().root.add_child(loot)
