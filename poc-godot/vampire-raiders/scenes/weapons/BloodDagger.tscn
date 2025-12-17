@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://dkw8xp5yjm3r1"]
+
+[ext_resource type="Script" path="res://scripts/weapons/blood_dagger.gd" id="1_dagger"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_dagger"]
+radius = 6.0
+
+[node name="BloodDagger" type="Area2D"]
+collision_layer = 4
+collision_mask = 2
+script = ExtResource("1_dagger")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_dagger")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(1, 0.3, 0.3, 1)
+polygon = PackedVector2Array(-8, 0, 0, -4, 8, 0, 0, 4)
