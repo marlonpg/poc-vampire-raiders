@@ -3,12 +3,19 @@ extends CharacterBody2D
 @export var speed: float = 300.0
 @export var max_health: int = 100
 @export var invincibility_time: float = 0.5
+@export var position_sync_interval: float = 0.1  # Sync position every 0.1 seconds
 
 var level: int = 1
 var xp: int = 0
 var xp_to_next_level: int = 5
 var health: int = 100
 var invincible: bool = false
+
+# Multiplayer
+var player_id: int = -1
+var is_local_player: bool = false
+var last_synced_position: Vector2 = Vector2.ZERO
+var position_sync_timer: float = 0.0
 
 signal level_up(new_level: int)
 signal health_changed(current_health: int, max_health: int)
@@ -19,14 +26,48 @@ signal player_died
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health
+	
+	# Multiplayer setup
+	if multiplayer:
+		player_id = get_multiplayer_authority()
+		is_local_player = is_multiplayer_authority()
+	
+	# Setup camera for local player
+	if is_local_player:
+		var camera = Camera2D.new()
+		camera.enabled = true
+		camera.make_current()  # Make this the active camera
+		add_child(camera)
+		print("[Player %d] Camera added for LOCAL player" % player_id)
+	else:
+		print("[Player %d] REMOTE player (no camera)" % player_id)
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	# Only local player handles input
+	if not is_local_player:
+		return
+	
 	var input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = input_direction * speed
 	move_and_slide()
+	
+	# Sync position to network at interval
+	position_sync_timer += delta
+	if position_sync_timer >= position_sync_interval:
+		position_sync_timer = 0.0
+		if position != last_synced_position:
+			last_synced_position = position
+			_sync_position_to_network()
 
 func add_xp(amount: int) -> void:
+	if not is_local_player:
+		return
+	
 	xp += amount
+	_check_level_up()
+	_sync_stats_to_network()
+
+func _check_level_up() -> void:
 	while xp >= xp_to_next_level:
 		xp -= xp_to_next_level
 		level += 1
@@ -58,8 +99,12 @@ func take_damage(amount: int) -> void:
 	if invincible:
 		return
 	
+	if not is_local_player:
+		return
+	
 	health -= amount
 	health_changed.emit(health, max_health)
+	_sync_stats_to_network()
 	
 	if health <= 0:
 		die()
@@ -69,6 +114,30 @@ func take_damage(amount: int) -> void:
 		invincible = false
 
 func die() -> void:
+	if not is_local_player:
+		return
+	
 	player_died.emit()
 	print("Player died!")
-	get_tree().reload_current_scene()
+	
+	# Notify network
+	var multiplayer_manager = get_tree().root.get_node("MultiplayerManager")
+	if multiplayer_manager:
+		multiplayer_manager.on_player_died(player_id)
+	
+	# Drop all inventory items (TODO: implement loot drops)
+	# get_tree().reload_current_scene()
+
+# ============================================================================
+# NETWORK SYNCHRONIZATION
+# ============================================================================
+
+func _sync_position_to_network() -> void:
+	var multiplayer_manager = get_tree().root.get_node_or_null("MultiplayerManager")
+	if multiplayer_manager:
+		multiplayer_manager.update_player_position(position)
+
+func _sync_stats_to_network() -> void:
+	var multiplayer_manager = get_tree().root.get_node_or_null("MultiplayerManager")
+	if multiplayer_manager:
+		multiplayer_manager.update_player_stats(health, level, xp)

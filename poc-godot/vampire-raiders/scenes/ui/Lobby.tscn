@@ -1,0 +1,152 @@
+[gd_scene load_steps=2 format=3 uid="uid://42hitw3latj3"]
+
+[ext_resource type="Script" path="res://scripts/ui/lobby.gd" id="1_abc12"]
+
+[node name="Lobby" type="Control"]
+layout_mode = 1
+anchors_left = 0.0
+anchors_top = 0.0
+anchors_right = 1.0
+anchors_bottom = 1.0
+script = ExtResource("1_abc12")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_left = 0.0
+anchors_top = 0.0
+anchors_right = 1.0
+anchors_bottom = 1.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(400, 300)
+alignment = 1
+
+[node name="Title" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "VAMPIRE RAIDERS"
+alignment = 1
+
+[node name="Subtitle" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Multiplayer Lobby"
+alignment = 1
+
+[node name="ErrorLabel" type="Label" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0, 0, 1)
+alignment = 1
+
+[node name="ModeContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/ModeContainer"]
+layout_mode = 2
+text = "Select Mode"
+alignment = 1
+
+[node name="HostButton" type="Button" parent="CenterContainer/VBoxContainer/ModeContainer"]
+layout_mode = 2
+text = "Host Game"
+
+[node name="JoinButton" type="Button" parent="CenterContainer/VBoxContainer/ModeContainer"]
+layout_mode = 2
+text = "Join Game"
+
+[node name="HostPanel" type="PanelContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+visible = false
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/VBoxContainer/HostPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer/HostPanel/MarginContainer"]
+layout_mode = 2
+separation = 5
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/HostPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Enter your name:"
+
+[node name="PlayerNameInput" type="LineEdit" parent="CenterContainer/VBoxContainer/HostPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "Host"
+
+[node name="HostButton" type="Button" parent="CenterContainer/VBoxContainer/HostPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Start Server"
+
+[node name="JoinPanel" type="PanelContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+visible = false
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/VBoxContainer/JoinPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Server IP:"
+
+[node name="IPInput" type="LineEdit" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "127.0.0.1"
+text = "127.0.0.1"
+
+[node name="Label2" type="Label" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Your name:"
+
+[node name="PlayerNameInput" type="LineEdit" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "Player"
+
+[node name="JoinButton" type="Button" parent="CenterContainer/VBoxContainer/JoinPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Join Server"
+
+[node name="LobbyPanel" type="PanelContainer" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+visible = false
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/VBoxContainer/LobbyPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer"]
+layout_mode = 2
+separation = 5
+
+[node name="Label" type="Label" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Players:"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
+
+[node name="PlayersList" type="VBoxContainer" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ReadyButton" type="Button" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Ready"
+
+[node name="StartButton" type="Button" parent="CenterContainer/VBoxContainer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Start Game"
+visible = false
