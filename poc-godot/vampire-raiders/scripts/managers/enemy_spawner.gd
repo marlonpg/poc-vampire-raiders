@@ -22,3 +22,7 @@ func spawn_initial_enemies() -> void:
 		var random_y = randf_range(-half_size, half_size)
 		enemy.global_position = Vector2(random_x, random_y)
 		add_child(enemy)
+		
+		# Spread spawning over frames to avoid freezing
+		if i % 10 == 0:
+			await get_tree().process_frame

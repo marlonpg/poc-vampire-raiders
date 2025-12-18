@@ -21,9 +21,20 @@ func _ready() -> void:
 	health = max_health
 
 func _physics_process(_delta: float) -> void:
-	var input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	velocity = input_direction * speed
-	move_and_slide()
+	# Single player or multiplayer authority
+	if not multiplayer.has_multiplayer_peer() or is_multiplayer_authority():
+		var input_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		velocity = input_direction * speed
+		move_and_slide()
+		
+		if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+			rpc("sync_position", global_position, velocity)
+
+@rpc("unreliable")
+func sync_position(pos: Vector2, vel: Vector2) -> void:
+	if not is_multiplayer_authority():
+		global_position = pos
+		velocity = vel
 
 func add_xp(amount: int) -> void:
 	xp += amount
@@ -70,5 +81,19 @@ func take_damage(amount: int) -> void:
 
 func die() -> void:
 	player_died.emit()
-	print("Player died!")
-	get_tree().reload_current_scene()
+	
+	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
+		_drop_all_loot()
+	
+	if not multiplayer.has_multiplayer_peer() or is_multiplayer_authority():
+		print("You died!")
+		await get_tree().create_timer(3.0).timeout
+		get_tree().reload_current_scene()
+
+func _drop_all_loot() -> void:
+	if not inventory:
+		return
+	
+	for i in range(inventory.items.size() - 1, -1, -1):
+		inventory.drop_item(i)
+		await get_tree().create_timer(0.1).timeout

@@ -10,6 +10,9 @@ signal inventory_full
 signal item_dropped(index: int)
 
 func add_item(item_data: Dictionary) -> bool:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		return false
+	
 	var slots_needed = item_data.get("slots", 1)
 	
 	if get_used_slots() + slots_needed > max_slots:
@@ -18,6 +21,8 @@ func add_item(item_data: Dictionary) -> bool:
 	
 	items.append(item_data)
 	inventory_changed.emit()
+	if multiplayer.has_multiplayer_peer():
+		rpc("sync_inventory", items)
 	return true
 
 func remove_item(index: int) -> void:
@@ -26,11 +31,17 @@ func remove_item(index: int) -> void:
 		inventory_changed.emit()
 
 func drop_item(index: int) -> void:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		rpc_id(1, "request_drop_item", index)
+		return
+	
 	if index >= 0 and index < items.size():
 		var item_data = items[index]
 		items.remove_at(index)
 		item_dropped.emit(index)
 		inventory_changed.emit()
+		if multiplayer.has_multiplayer_peer():
+			rpc("sync_inventory", items)
 		
 		if loot_item_scene:
 			var loot = loot_item_scene.instantiate()
@@ -42,6 +53,16 @@ func drop_item(index: int) -> void:
 			loot.global_position = get_parent().global_position + offset
 			
 			get_tree().root.add_child(loot)
+
+@rpc("any_peer", "call_local")
+func request_drop_item(index: int) -> void:
+	if multiplayer.is_server():
+		drop_item(index)
+
+@rpc("authority", "call_local")
+func sync_inventory(new_items: Array) -> void:
+	items = new_items
+	inventory_changed.emit()
 
 func get_used_slots() -> int:
 	var used = 0
@@ -55,6 +76,8 @@ func get_available_slots() -> int:
 func clear() -> void:
 	items.clear()
 	inventory_changed.emit()
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		rpc("sync_inventory", items)
 
 func get_total_value() -> int:
 	var total = 0

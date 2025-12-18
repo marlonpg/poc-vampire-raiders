@@ -8,7 +8,10 @@
 [ext_resource type="Script" path="res://scripts/managers/game_manager.gd" id="6_manager"]
 [ext_resource type="PackedScene" uid="uid://dr8n7yr5vn3w7" path="res://scenes/world/ExtractionPoint.tscn" id="7_extract"]
 
-[node name="GameWorld" type="Node2D"]
+[ext_resource type="Script" path="res://scripts/world/game_world.gd" id="7_world"]
+
+[node name="GameWorld" type="Node2D" groups=["game_world"]]
+script = ExtResource("7_world")
 
 [node name="Ground" type="ColorRect" parent="."]
 offset_left = -3200.0
@@ -21,8 +24,6 @@ z_index = -2
 [node name="Grid" type="Node2D" parent="."]
 z_index = -1
 script = ExtResource("2_grid")
-
-[node name="Player" parent="." instance=ExtResource("1_player")]
 
 [node name="Enemies" type="Node2D" parent="."]
 script = ExtResource("3_spawner")
