@@ -14,6 +14,7 @@ var _attack_timer := 0.0
 
 func _ready():
 	print("[PLAYER]", _role(), "node:", name, "authority:", get_multiplayer_authority())
+	# Camera activation is handled centrally in World._on_spawner_spawned to ensure correct timing on clients
 
 func _process(delta):
 	if can_send_input():
@@ -23,7 +24,10 @@ func _physics_process(delta):
 	if multiplayer.is_server():
 		position += velocity * delta
 		handle_auto_attack(delta)
-		rpc("sync_state", position, health, xp)
+		# Broadcast authoritative state to connected peers (avoids analyzer rpc_unreliable issue)
+		var peers := get_tree().get_multiplayer().get_peers()
+		for pid in peers:
+			get_tree().get_multiplayer().rpc(pid, self, "sync_state", [position, health, xp])
 
 # =========================
 # INPUT (CLIENT → SERVER)
@@ -77,7 +81,7 @@ func handle_auto_attack(delta):
 # =========================
 # STATE SYNC (SERVER → CLIENT)
 # =========================
-@rpc("authority", "unreliable")
+@rpc("authority")
 func sync_state(pos, h, x):
 	position = pos
 	health = h

@@ -50,7 +50,7 @@ func take_damage(amount):
 	if health <= 0:
 		queue_free()
 
-@rpc("authority", "unreliable")
+@rpc("authority")
 func sync_position(pos):
 	position = pos
 

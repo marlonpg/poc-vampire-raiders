@@ -108,9 +108,84 @@ func _log_role(message: String):
 func _on_spawner_spawned(node: Node):
 	_log_role("Spawner spawned -> %s (path=%s)" % [node.name, node.get_path()])
 
-func _on_spawner_despawned(node: Node):
-	_log_role("Spawner despawned -> %s (path=%s)" % [node.name, node.get_path()])
+	# On clients, activate Camera2D for the local player's spawned instance.
+	if not multiplayer.is_server():
+		# Ensure the spawn is fully in the tree and settled
+		await get_tree().process_frame
+		await get_tree().process_frame
+		# If this spawned node is the local player, enable its camera
+		if node is Player:
+			var my_id := multiplayer.get_unique_id()
+			# Node name holds the peer id (server sets player.name = str(peer_id))
+			var name_str := str(node.name)
+			var nid := name_str.to_int()
+			# Peer IDs are positive integers (server=1), so check > 0 to validate
+			if nid > 0 and my_id == nid:
+				# Local player spawn detected; ensure we have a camera and make it current
+				_log_client("Local player spawn detected for id=%d" % nid)
+				# Disable any other Camera2D instances first to avoid a remote camera being active
+				var root := get_tree().get_root()
+				var cams := root.find_children("", "Camera2D", true, true)
+				for c in cams:
+					if c.is_inside_tree():
+						var c_path: String = str(c.get_path())
+						var c_parent_name: String = (str(c.get_parent().name) if c.get_parent() != null else "nil")
+						_log_client("Disabling camera id=%d path=%s parent=%s" % [c.get_instance_id(), c_path, c_parent_name])
+					# Defer deactivation to avoid touching viewport/camera state during instantiation
+					call_deferred("_deactivate_camera", c)
+				# Activate local player's camera deferred to ensure it becomes current reliably
+				var cam = node.get_node_or_null("Camera2D")
+				if cam != null:
+					cam.call_deferred("make_current")
+					call_deferred("_report_camera_activation", cam, node.name)
+					_log_client("Activated camera for local player %s" % node.name)
+				else:
+					# No Camera2D present on the spawned Player — create a client-only camera
+					_log_client("No Camera2D found on local player %s; creating one now" % node.name)
+					var new_cam: Camera2D = Camera2D.new()
+					new_cam.name = "Camera2D_local"
+					# NOTE: Some engine versions may not expose smoothing via script; avoid setting it to prevent errors
+					node.add_child(new_cam)
+					# Activate and report using deferred calls
+					new_cam.call_deferred("make_current")
+					call_deferred("_report_camera_activation", new_cam, node.name)
+					_log_client("Created and activated Camera2D id=%d for player %s" % [new_cam.get_instance_id(), node.name])
 
+func _on_spawner_despawned(node: Node):
+	if node.is_inside_tree():
+		_log_role("Spawner despawned -> %s (path=%s)" % [node.name, node.get_path()])
+	else:
+		_log_role("Spawner despawned -> %s (not in tree)" % node.name)
+
+# Camera debug reports (client-side helpers)
+func _report_camera_activation(cam: Camera2D, player_name: String):
+	if cam == null:
+		_log_client("Camera activation report: camera is null for player %s" % player_name)
+		return
+	var path: String = (str(cam.get_path()) if cam.is_inside_tree() else "not in tree")
+	var parent_name: String = (str(cam.get_parent().name) if cam.get_parent() != null else "nil")
+	_log_client("Camera activation report: id=%d path=%s parent=%s current=%s for player=%s" % [cam.get_instance_id(), path, parent_name, str(cam.is_current()), player_name])
+
+func _report_camera_disabled(cam: Camera2D):
+	if cam == null:
+		return
+	var path: String = (str(cam.get_path()) if cam.is_inside_tree() else "not in tree")
+	var parent_name: String = (str(cam.get_parent().name) if cam.get_parent() != null else "nil")
+	_log_client("Camera disabled report: id=%d path=%s parent=%s current=%s" % [cam.get_instance_id(), path, parent_name, str(cam.is_current())])
+# Safely deactivate a Camera2D by clearing it from the viewport if it's the active camera
+func _deactivate_camera(cam: Camera2D):
+	if cam == null:
+		return
+	if not cam.is_inside_tree():
+		# Nothing to do
+		return
+	var vp := cam.get_viewport()
+	if vp != null:
+		var active := vp.get_camera_2d()
+		if active == cam:
+			vp.set_camera_2d(null)
+	# Report final state
+	_report_camera_disabled(cam)
 func _log_server(message: String):
 	if multiplayer.is_server():
 		print("[SERVER] ", message, " | Peer ID:", multiplayer.get_unique_id())
