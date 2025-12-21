@@ -11,6 +11,11 @@ func _ready() -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
+		# Only allow pickup by local player
+		if not body.is_local_player:
+			print("[LootItem] Ignoring pickup by remote player")
+			return
+		
 		var inventory = body.get_node_or_null("Inventory")
 		if inventory:
 			var item_data = {
@@ -18,5 +23,16 @@ func _on_body_entered(body: Node2D) -> void:
 				"value": item_value,
 				"slots": slots_required
 			}
+			print("[LootItem] Attempting to add %s to inventory" % item_name)
 			if inventory.add_item(item_data):
-				queue_free()
+				print("[LootItem] Item added successfully, removing loot")
+				# Notify all clients to remove this loot
+				rpc("_remove_loot")
+			else:
+				print("[LootItem] Failed to add item (inventory full?)")
+		else:
+			print("[LootItem] No inventory found on player")
+
+@rpc("any_peer", "call_remote", "reliable")
+func _remove_loot() -> void:
+	queue_free()

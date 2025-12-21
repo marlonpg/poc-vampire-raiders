@@ -7,13 +7,25 @@ var inventory: Node
 var slot_buttons: Array = []
 
 func _ready() -> void:
-	var player = get_tree().get_first_node_in_group("player")
+	# Find local player (not just any player)
+	var player = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if p.is_local_player:
+			player = p
+			break
+	
 	if player:
 		inventory = player.get_node_or_null("Inventory")
 		if inventory:
+			print("[InventoryUI] Connected to local player's inventory")
 			inventory.inventory_changed.connect(_update_display)
 			inventory.inventory_full.connect(_on_inventory_full)
 			_create_slots()
+		else:
+			print("[InventoryUI] ERROR: Could not find Inventory node on player")
+	else:
+		print("[InventoryUI] ERROR: Could not find local player")
+	
 	_update_display()
 
 func _create_slots() -> void:

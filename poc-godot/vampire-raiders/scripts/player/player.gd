@@ -36,8 +36,9 @@ func _ready() -> void:
 	if is_local_player:
 		var camera = Camera2D.new()
 		camera.enabled = true
-		camera.make_current()  # Make this the active camera
 		add_child(camera)
+		# make_current() must be called after camera is in the tree
+		camera.make_current()
 		print("[Player %d] Camera added for LOCAL player" % player_id)
 	else:
 		print("[Player %d] REMOTE player (no camera)" % player_id)
@@ -75,6 +76,13 @@ func _check_level_up() -> void:
 		level_up.emit(level)
 
 func apply_upgrade(upgrade_type: String) -> void:
+	if not is_local_player:
+		return
+	
+	rpc("_apply_upgrade_sync", upgrade_type)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apply_upgrade_sync(upgrade_type: String) -> void:
 	match upgrade_type:
 		"fire_rate":
 			var weapon = get_node_or_null("WeaponController")
@@ -96,10 +104,15 @@ func apply_upgrade(upgrade_type: String) -> void:
 				weapon.max_range += 128
 
 func take_damage(amount: int) -> void:
-	if invincible:
+	# Only local player can take damage, sync via RPC
+	if not is_local_player:
 		return
 	
-	if not is_local_player:
+	rpc("_apply_damage", amount)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apply_damage(amount: int) -> void:
+	if invincible:
 		return
 	
 	health -= amount
@@ -107,11 +120,15 @@ func take_damage(amount: int) -> void:
 	_sync_stats_to_network()
 	
 	if health <= 0:
-		die()
+		rpc("_on_player_died")
 	else:
 		invincible = true
 		await get_tree().create_timer(invincibility_time).timeout
 		invincible = false
+
+@rpc("any_peer", "call_remote", "reliable")
+func _on_player_died() -> void:
+	die()
 
 func die() -> void:
 	if not is_local_player:

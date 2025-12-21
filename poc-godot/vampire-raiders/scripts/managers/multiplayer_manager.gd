@@ -7,6 +7,7 @@ const MAX_PLAYERS = 4
 
 # State
 var players_info: Dictionary = {}  # player_id -> {name, position, health, level, xp}
+var enemy_health: Dictionary = {}  # enemy_name -> health value
 var is_host: bool = false
 var local_player_id: int = -1
 
@@ -374,3 +375,128 @@ func disconnect_from_server() -> void:
 	is_host = false
 	players_info.clear()
 	local_player_id = -1
+
+# ============================================================================
+# INVENTORY SYNCHRONIZATION (Anti-Duplication)
+# ============================================================================
+
+func update_inventory(player_id: int, items_data: Array) -> void:
+	if local_player_id != player_id:
+		return  # Only local player can update their own inventory
+	
+	rpc("sync_inventory", player_id, items_data)
+
+@rpc("any_peer", "call_remote", "reliable")
+func sync_inventory(player_id: int, items_data: Array) -> void:
+	if is_host:
+		# Server validates inventory (anti-duplication)
+		if _validate_inventory(player_id, items_data):
+			if player_id in players_info:
+				players_info[player_id]["inventory"] = items_data
+				# Broadcast to all clients
+				rpc("broadcast_inventory", player_id, items_data)
+		else:
+			print("Inventory hack detected from player: ", player_id)
+	else:
+		# Client receives inventory update
+		if player_id in players_info:
+			players_info[player_id]["inventory"] = items_data
+
+@rpc("authority", "call_remote", "reliable")
+func broadcast_inventory(player_id: int, items_data: Array) -> void:
+	if player_id in players_info:
+		players_info[player_id]["inventory"] = items_data
+
+func _validate_inventory(player_id: int, items_data: Array) -> bool:
+	# Basic validation: check inventory size
+	var max_slots = 6
+	var total_slots = 0
+	for item in items_data:
+		total_slots += item.get("slots", 1)
+	
+	if total_slots > max_slots:
+		print("Inventory exceeds max slots: ", total_slots)
+		return false
+	
+	# Could add more validation like:
+	# - Check for duplicate unique items
+	# - Verify item IDs are valid
+	# - Check total value doesn't exceed reasonable limits
+	
+	return true
+# ============================================================================
+# ENEMY HEALTH MANAGEMENT (Server Authority)
+# ============================================================================
+
+@rpc("authority", "call_remote", "reliable")
+func register_enemy(enemy_name: String, initial_health: int) -> void:
+	# Server tracks all enemy health (callable by clients as an authority RPC)
+	if is_host:
+		enemy_health[enemy_name] = initial_health
+		print("[MultiplayerManager] Registered enemy: %s with %d health" % [enemy_name, initial_health])
+
+@rpc("any_peer", "call_remote", "reliable")
+func apply_enemy_damage(enemy_name: String, damage: int) -> void:
+	# Only server processes damage
+	if not is_host:
+		return
+	
+	if enemy_name not in enemy_health:
+		print("[MultiplayerManager] WARNING: Attempted damage to unknown enemy: %s" % enemy_name)
+		return
+	
+	enemy_health[enemy_name] -= damage
+	print("[MultiplayerManager] Enemy %s took %d damage (health: %d)" % [enemy_name, damage, enemy_health[enemy_name]])
+	
+	# If enemy dies, notify all clients
+	if enemy_health[enemy_name] <= 0:
+		enemy_health.erase(enemy_name)
+		rpc("despawn_enemy", enemy_name)
+
+@rpc("authority", "call_remote", "reliable")
+func despawn_enemy(enemy_name: String) -> void:
+	# Host determines loot and position, then tells clients to spawn loot and remove the enemy
+	var pos: Vector2 = Vector2.ZERO
+	var should_drop_loot: bool = false
+	# Try to find the enemy node on the host to sample its position and loot chance
+	var enemy_nodes = get_tree().get_nodes_in_group("enemies")
+	for enemy_node in enemy_nodes:
+		if enemy_node.name == enemy_name:
+			pos = enemy_node.global_position
+			if "loot_drop_chance" in enemy_node:
+				should_drop_loot = randf() < enemy_node.loot_drop_chance
+			break
+	# Inform all clients to spawn loot (if any)
+	rpc("spawn_loot_for_enemy", enemy_name, pos, should_drop_loot)
+	# Then instruct all clients to remove the enemy node by name
+	rpc("remove_enemy_by_name", enemy_name)
+
+@rpc("any_peer", "call_remote", "reliable")
+func spawn_loot_for_enemy(enemy_name: String, pos: Vector2, should_drop: bool) -> void:
+	# Clients spawn XP gem and loot at the given position (server-authoritative)
+	if pos == Vector2.ZERO:
+		# No position provided; nothing to spawn
+		return
+	if should_drop and get_tree().has_current_scene():
+		# Instantiate loot/gem using the enemy scene info if available
+		var scene_root = get_tree().root
+		# Try to get a reference template; we don't have the enemy instance here, but enemies expose scenes via exported vars
+		# Use a simple XP gem instantiation if the gem scene is available in resources
+		var xp_scene = preload("res://scenes/loot/XPGem.tscn")
+		if xp_scene:
+			var gem = xp_scene.instantiate()
+			gem.global_position = pos
+			scene_root.add_child(gem)
+
+@rpc("any_peer", "call_remote", "reliable")
+func remove_enemy_by_name(enemy_name: String) -> void:
+	var enemy_nodes = get_tree().get_nodes_in_group("enemies")
+	for enemy_node in enemy_nodes:
+		if enemy_node.name == enemy_name:
+			# Hide and remove safely
+			enemy_node.visible = false
+			enemy_node.set_collision_layer(0)
+			enemy_node.set_collision_mask(0)
+			await get_tree().process_frame
+			enemy_node.queue_free()
+			break

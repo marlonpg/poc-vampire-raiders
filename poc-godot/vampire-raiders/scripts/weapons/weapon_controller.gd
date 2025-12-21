@@ -5,8 +5,16 @@ extends Node2D
 @export var max_range: float = 448.0
 
 var fire_timer: float = 0.0
+var player: Node = null
+
+func _ready() -> void:
+	player = get_parent()
 
 func _process(delta: float) -> void:
+	# Only fire for local player to avoid duplicate projectiles
+	if player and not player.is_local_player:
+		return
+	
 	fire_timer += delta
 	
 	if fire_timer >= fire_rate:
