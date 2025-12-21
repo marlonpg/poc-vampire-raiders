@@ -27,7 +27,7 @@ func fire() -> void:
 	var direction = (closest_enemy.global_position - global_position).normalized()
 	projectile.direction = direction
 	
-	get_tree().root.add_child(projectile)
+	get_tree().root.call_deferred("add_child", projectile)
 
 func get_closest_enemy() -> Node2D:
 	var enemies = get_tree().get_nodes_in_group("enemies")

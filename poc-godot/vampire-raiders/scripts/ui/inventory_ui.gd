@@ -20,7 +20,7 @@ func _create_slots() -> void:
 	if not inventory:
 		return
 	
-	for i in inventory.max_slots:
+	for i in range(inventory.max_slots):
 		var button = Button.new()
 		button.custom_minimum_size = Vector2(60, 60)
 		button.text = ""

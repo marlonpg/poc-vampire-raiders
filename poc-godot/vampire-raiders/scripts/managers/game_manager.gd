@@ -7,6 +7,9 @@ var extractions_unlocked: bool = false
 
 signal extractions_available
 
+func _ready() -> void:
+	add_to_group("game_manager")
+
 func _process(delta: float) -> void:
 	game_time += delta
 	

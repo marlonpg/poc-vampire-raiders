@@ -1,7 +1,7 @@
 extends Node2D
 
 @export var enemy_scene: PackedScene
-@export var initial_enemy_count: int = 400
+@export var initial_enemy_count: int = 2000
 @export var map_size: int = 100
 
 const GRID_SIZE = 64
@@ -16,7 +16,7 @@ func spawn_initial_enemies() -> void:
 	var map_pixel_size = map_size * GRID_SIZE
 	var half_size = map_pixel_size / 2
 	
-	for i in initial_enemy_count:
+	for i in range(initial_enemy_count):
 		var enemy = enemy_scene.instantiate()
 		var random_x = randf_range(-half_size, half_size)
 		var random_y = randf_range(-half_size, half_size)

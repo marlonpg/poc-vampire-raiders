@@ -41,7 +41,7 @@ func drop_item(index: int) -> void:
 			var offset = Vector2(randf_range(-50, 50), randf_range(-50, 50))
 			loot.global_position = get_parent().global_position + offset
 			
-			get_tree().root.add_child(loot)
+			get_tree().root.call_deferred("add_child", loot)
 
 func get_used_slots() -> int:
 	var used = 0

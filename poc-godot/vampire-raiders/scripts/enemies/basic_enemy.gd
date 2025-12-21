@@ -46,9 +46,9 @@ func drop_xp() -> void:
 	if xp_gem_scene:
 		var gem = xp_gem_scene.instantiate()
 		gem.global_position = global_position
-		get_tree().root.add_child(gem)
+		get_tree().root.call_deferred("add_child", gem)
 	
 	if loot_scene and randf() < loot_drop_chance:
 		var loot = loot_scene.instantiate()
 		loot.global_position = global_position
-		get_tree().root.add_child(loot)
+		get_tree().root.call_deferred("add_child", loot)
