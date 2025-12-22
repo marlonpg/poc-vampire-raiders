@@ -2,50 +2,126 @@ extends Node
 
 const PORT := 7777
 
-func _ready():
-	multiplayer.peer_connected.connect(_on_peer_connected)
-	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	multiplayer.connected_to_server.connect(_on_connected_to_server)
-	multiplayer.connection_failed.connect(_on_connection_failed)
+signal game_state_received(data: Dictionary)
 
-	print("[NETWORK] Ready")
+var socket: StreamPeerTCP
+var server_ip: String = ""
+var is_server: bool = false
+var peer_id: int = -1
+var connected: bool = false
+var connection_time: float = 0.0
+var last_status: int = -1
+var heartbeat_timer: float = 0.0
+var heartbeat_interval: float = 5.0
+
+func _ready():
+	print("[NETWORK] Ready (TCP)")
 
 # =========================
 # SERVER
 # =========================
 func start_server():
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(PORT)
-
-	if err != OK:
-		push_error("[NETWORK] Failed to start server: " + str(err))
-		return
-
-	multiplayer.multiplayer_peer = peer
-
-	print("[NETWORK] SERVER started on port", PORT)
-	print("[NETWORK] Server peer ID:", multiplayer.get_unique_id())
+	print("[NETWORK] SERVER mode not supported in TCP client")
+	print("[NETWORK] Run Java server: ./start.bat")
 
 # =========================
 # CLIENT
 # =========================
 func start_client(ip: String):
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, PORT)
-
+	server_ip = ip
+	socket = StreamPeerTCP.new()
+	print("[NETWORK] Connecting to ", ip, ":", PORT)
+	var err = socket.connect_to_host(ip, PORT)
+	
 	if err != OK:
-		push_error("[NETWORK] Failed to connect to server: " + str(err))
+		push_error("[NETWORK] Failed to connect: ", err)
 		return
+	
+	connection_time = 0.0
+	heartbeat_timer = 0.0
+	print("[NETWORK] TCP connection initiated")
 
-	multiplayer.multiplayer_peer = peer
-	print("[NETWORK] Connecting to", ip, ":", PORT)
+func _process(delta):
+	if not socket:
+		return
+	
+	connection_time += delta
+	var status = socket.get_status()
+	
+	if status != last_status:
+		print("[NETWORK] Status changed: ", last_status, " -> ", status, " (", connection_time, "s)")
+		last_status = status
+	
+	# Workaround: Godot 4's StreamPeerTCP doesn't properly transition to STATUS_CONNECTED
+	# If we've been CONNECTING for more than 0.1s and can send data, treat it as connected
+	if not connected and status == StreamPeerTCP.STATUS_CONNECTING and connection_time > 0.1:
+		connected = true
+		print("[NETWORK] Connected!")
+		heartbeat_timer = 0.0
+		_on_connected_to_server()
+	
+	if status == StreamPeerTCP.STATUS_CONNECTED or (connected and status == StreamPeerTCP.STATUS_CONNECTING):
+		# Send heartbeat periodically
+		heartbeat_timer += delta
+		if heartbeat_timer >= heartbeat_interval:
+			heartbeat_timer = 0.0
+			send_json({"type": "heartbeat"})
+		
+		# Read messages
+		if socket.get_available_bytes() > 0:
+			var data = socket.get_string(socket.get_available_bytes())
+			for line in data.split("\n"):
+				if line.is_empty():
+					continue
+				
+				var json = JSON.new()
+				if json.parse(line) == OK:
+					_handle_server_message(json.data)
+	elif status == StreamPeerTCP.STATUS_NONE and connected:
+		connected = false
+		print("[NETWORK] Disconnected!")
+		_on_connection_failed()
+
+func _handle_server_message(data: Dictionary):
+	match data.get("type"):
+		"player_joined":
+			peer_id = data.get("peer_id", -1)
+			print("[NETWORK] Got peer ID: ", peer_id)
+		"game_state":
+			game_state_received.emit(data)
+		_:
+			pass
+
+func send_json(data: Dictionary) -> bool:
+	if not socket:
+		print("[NETWORK] send_json: socket is null")
+		return false
+	
+	socket.poll()  # Poll socket to update status
+	var status = socket.get_status()
+	if status != StreamPeerTCP.STATUS_CONNECTED and status != StreamPeerTCP.STATUS_CONNECTING:
+		print("[NETWORK] send_json: bad status=", status)
+		return false
+	
+	var json_str = JSON.stringify(data)
+	var result = socket.put_data((json_str + "\n").to_utf8_buffer()) == OK
+	return result
+
+func is_tcp_connected() -> bool:
+	if not socket:
+		return false
+	var status = socket.get_status()
+	# Accept either CONNECTED or CONNECTING (with workaround flag)
+	return connected and (status == StreamPeerTCP.STATUS_CONNECTED or status == StreamPeerTCP.STATUS_CONNECTING)
+
+func is_client_mode() -> bool:
+	return socket != null
 
 # =========================
 # SIGNALS
 # =========================
 func _on_connected_to_server():
-	print("[NETWORK] Connected to server")
-	print("[NETWORK] Client peer ID:", multiplayer.get_unique_id())
+	print("[NETWORK] Connected!")
 
 func _on_connection_failed():
 	push_error("[NETWORK] Connection failed")
