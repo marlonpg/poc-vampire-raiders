@@ -68,8 +68,17 @@ func _process(delta):
 			send_json({"type": "heartbeat"})
 		
 		# Read messages
-		if socket.get_available_bytes() > 0:
-			var data = socket.get_string(socket.get_available_bytes())
+		var available_bytes = socket.get_available_bytes()
+		if available_bytes > 0:
+			var bytes = socket.get_data(available_bytes)
+			if bytes[0] != OK:
+				# Read error, skip this frame
+				return
+			
+			var data = bytes[1].get_string_from_utf8()
+			if data == "":
+				return
+				
 			for line in data.split("\n"):
 				if line.is_empty():
 					continue
