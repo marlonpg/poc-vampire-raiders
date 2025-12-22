@@ -11,6 +11,7 @@ var player_instance: Node2D = null
 var net_manager: Node = null
 var enemies: Dictionary = {}  # ID -> enemy node
 var bullets: Dictionary = {}  # ID -> bullet node
+var other_players: Dictionary = {}  # peer_id -> player node (excluding local)
 var last_input_dir: Vector2 = Vector2.ZERO
 var input_send_timer: float = 0.0
 var input_send_interval: float = 0.1  # Send input every 0.1 seconds
@@ -87,19 +88,53 @@ func _on_game_state_received(data: Dictionary):
 	var enemies_data = data.get("enemies", [])
 	var bullets_data = data.get("bullets", [])
 	
-	# Update local player position and health from server
-	if player_instance and net_manager:
-		for player_data in players:
-			if player_data.get("peer_id") == net_manager.peer_id:
-				player_instance.position = Vector2(player_data.get("x", 0), player_data.get("y", 0))
-				player_instance.health = player_data.get("health", 100)
-				break
+	# Update players (local + others)
+	_update_players(players)
 	
 	# Update enemies
 	_update_enemies(enemies_data)
 	
 	# Update bullets
 	_update_bullets(bullets_data)
+
+func _update_players(players_data: Array) -> void:
+	"""Spawn/update/remove player sprites for all peers."""
+	var server_ids := {}
+	for p in players_data:
+		var pid = p.get("peer_id")
+		server_ids[pid] = true
+
+		# Local player: keep existing instance but update position/health
+		if net_manager and pid == net_manager.peer_id:
+			if player_instance:
+				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
+				player_instance.health = p.get("health", 100)
+			elif player_scene:
+				player_instance = player_scene.instantiate()
+				player_instance.name = str(pid)
+				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
+				add_child(player_instance)
+		else:
+			# Remote players
+			if not other_players.has(pid) and player_scene:
+				var remote = player_scene.instantiate()
+				remote.name = "Player_%d" % pid
+				remote.modulate = Color(0.6, 0.8, 1.0)  # light tint to distinguish
+				add_child(remote)
+				other_players[pid] = remote
+			if other_players.has(pid) and is_instance_valid(other_players[pid]):
+				other_players[pid].position = Vector2(p.get("x", 0), p.get("y", 0))
+
+	# Remove players that disappeared
+	var to_remove := []
+	for pid in other_players.keys():
+		if not server_ids.has(pid):
+			if is_instance_valid(other_players[pid]):
+				other_players[pid].queue_free()
+			to_remove.append(pid)
+
+	for pid in to_remove:
+		other_players.erase(pid)
 
 func _update_enemies(enemies_data: Array):
 	"""Update enemy positions and states from server"""
