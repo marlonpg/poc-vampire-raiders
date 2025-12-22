@@ -15,12 +15,40 @@ public class SpawnerSystem {
     private final Random random = new Random();
     private static final int SPAWN_RADIUS = 500;
     private static final int SPAWN_MIN_DISTANCE = 300;
+    private static final int PERF_TEST_ENEMY_COUNT = 100;
 
     public SpawnerSystem(GameState gameState) {
         this.gameState = gameState;
         this.maxEnemies = ServerConfig.getInstance().getMaxEnemies();
         this.spawnInterval = ServerConfig.getInstance().getSpawnerInterval();
         this.lastSpawnTime = System.currentTimeMillis();
+    }
+    
+    public void spawnInitialEnemiesForPerfTest() {
+        // Performance test: spawn 200 enemies at startup
+        spawnInitialEnemies();
+    }
+    
+    private void spawnInitialEnemies() {
+        Logger.debug("Spawning " + PERF_TEST_ENEMY_COUNT + " enemies in circle formation...");
+        
+        // Spawn enemies in a circle around player spawn point (640, 360)
+        float centerX = 640f;
+        float centerY = 360f;
+        float circleRadius = 350f; // Just outside chase distance (224px = 7 tiles)
+        
+        for (int i = 0; i < PERF_TEST_ENEMY_COUNT; i++) {
+            // Calculate angle for this enemy (evenly distributed)
+            double angle = (2 * Math.PI * i) / PERF_TEST_ENEMY_COUNT;
+            
+            // Calculate position on circle
+            float x = centerX + (float)(Math.cos(angle) * circleRadius);
+            float y = centerY + (float)(Math.sin(angle) * circleRadius);
+            
+            Enemy enemy = Enemy.createRandomEnemy(x, y);
+            gameState.addEnemy(enemy);
+        }
+        Logger.debug("Performance test enemies spawned in circle: " + gameState.getEnemyCount());
     }
 
     public void update() {
@@ -53,10 +81,10 @@ public class SpawnerSystem {
     }
 
     private float getRandomSpawnX() {
-        return random.nextInt(1280);
+        return random.nextInt(8192);
     }
 
     private float getRandomSpawnY() {
-        return random.nextInt(720);
+        return random.nextInt(8192);
     }
 }

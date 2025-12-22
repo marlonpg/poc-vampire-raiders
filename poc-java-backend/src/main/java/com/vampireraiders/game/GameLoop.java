@@ -1,5 +1,6 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.systems.CombatSystem;
 import com.vampireraiders.systems.SpawnerSystem;
 import com.vampireraiders.systems.StateSync;
 import com.vampireraiders.util.Logger;
@@ -8,6 +9,7 @@ public class GameLoop implements Runnable {
     private final GameWorld gameWorld;
     private final SpawnerSystem spawnerSystem;
     private final StateSync stateSync;
+    private final CombatSystem combatSystem;
     private final int tickRate;
     private volatile boolean running = false;
     private long frameCount = 0;
@@ -16,6 +18,7 @@ public class GameLoop implements Runnable {
         this.gameWorld = gameWorld;
         this.spawnerSystem = spawnerSystem;
         this.stateSync = stateSync;
+        this.combatSystem = new CombatSystem();
         this.tickRate = tickRate;
     }
 
@@ -36,6 +39,9 @@ public class GameLoop implements Runnable {
                 
                 // Update game world
                 gameWorld.update(deltaTime);
+
+                // Check combat (player-enemy collisions)
+                combatSystem.update(gameWorld.getState(), deltaTime);
 
                 // Spawn enemies
                 spawnerSystem.update();

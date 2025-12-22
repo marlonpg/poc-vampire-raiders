@@ -43,6 +43,7 @@ public class Player {
 
     public void takeDamage(int damage) {
         this.health = Math.max(0, health - damage);
+        System.out.println("Player " + username + " took " + damage + " dmg, health=" + health + "/" + maxHealth);
     }
 
     public void heal(int amount) {

@@ -26,7 +26,7 @@ public class CombatSystem {
                 if (distance < COLLISION_DISTANCE) {
                     // Enemy damages player
                     player.takeDamage(enemy.getDamage());
-                    Logger.debug("Player " + player.getUsername() + " took " + enemy.getDamage() + " damage");
+                    Logger.info("Player " + player.getUsername() + " took " + enemy.getDamage() + " damage");
 
                     if (!player.isAlive()) {
                         Logger.info("Player " + player.getUsername() + " died");

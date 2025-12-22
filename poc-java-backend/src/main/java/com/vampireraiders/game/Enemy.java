@@ -47,19 +47,16 @@ public class Enemy {
     public void update(float deltaTime, Player targetPlayer) {
         if (targetPlayer == null || !targetPlayer.isAlive()) return;
 
-        // Move towards player
+        // Calculate distance to player
         float dx = targetPlayer.getX() - x;
         float dy = targetPlayer.getY() - y;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 0) {
+        // Only chase player if within 7 tiles (224 pixels)
+        float chaseDistance = 7 * 32;
+        if (distance > 0 && distance <= chaseDistance) {
             x += (dx / distance) * speed * deltaTime;
             y += (dy / distance) * speed * deltaTime;
-        }
-
-        // Kill enemy after 30 seconds (temporary solution)
-        if (System.currentTimeMillis() - spawnTime > 30000) {
-            health = 0;
         }
     }
 

@@ -38,6 +38,9 @@ public class VampireRaidersServer implements NetworkEventListener {
         Logger.info("=================================");
         Logger.info("Starting server on " + config.getHost() + ":" + config.getPort());
 
+        // Spawn initial enemies for performance testing
+        spawnerSystem.spawnInitialEnemiesForPerfTest();
+
         // Start network manager
         networkManager.start();
 

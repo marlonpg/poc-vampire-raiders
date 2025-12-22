@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GameWorld {
-    private static final int WORLD_WIDTH = 1280;
-    private static final int WORLD_HEIGHT = 720;
+    private static final int WORLD_WIDTH = 8192;  // 256 tiles * 32 pixels (Lorencia-sized map)
+    private static final int WORLD_HEIGHT = 8192; // 256 tiles * 32 pixels
     private static final int GRID_SIZE = 32;
 
     private final GameState state;
@@ -75,7 +75,7 @@ public class GameWorld {
         }
         for (Enemy e : enemiesToRemove) {
             state.removeEnemy(e);
-            System.out.println("[CLEANUP] Removed dead enemy, remaining: " + state.getAllEnemies().size());
+            //System.out.println("[CLEANUP] Removed dead enemy, remaining: " + state.getAllEnemies().size());
         }
         
         List<Bullet> bulletsToRemove = new ArrayList<>();
