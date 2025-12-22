@@ -17,10 +17,14 @@ func _ready():
 	# Camera activation is handled centrally in World._on_spawner_spawned to ensure correct timing on clients
 
 func _process(delta):
+	if health <= 0:
+		return
 	if can_send_input():
 		send_input()
 
 func _physics_process(delta):
+	if health <= 0:
+		return
 	if multiplayer.is_server():
 		position += velocity * delta
 		handle_auto_attack(delta)

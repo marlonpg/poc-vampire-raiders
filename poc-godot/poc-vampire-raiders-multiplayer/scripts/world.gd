@@ -15,6 +15,14 @@ var other_players: Dictionary = {}  # peer_id -> player node (excluding local)
 var last_input_dir: Vector2 = Vector2.ZERO
 var input_send_timer: float = 0.0
 var input_send_interval: float = 0.1  # Send input every 0.1 seconds
+var local_player_alive: bool = true
+var death_handled: bool = false
+var local_max_health: int = 100
+
+const HEALTH_BAR_WIDTH := 220.0
+
+@onready var health_fill: ColorRect = $HUD/MarginRoot/VBoxContainer/BarBG/HealthFill
+@onready var health_label: Label = $HUD/MarginRoot/VBoxContainer/HealthLabel
 
 func _ready():
 	await get_tree().process_frame
@@ -51,6 +59,7 @@ func _ready():
 				_log_client("Failed to connect to server after 10 seconds")
 
 	_log_role("World ready complete")
+	_update_health_ui(local_max_health, local_max_health)
 
 func _join_as_player():
 	"""Send player join message to Java server"""
@@ -106,6 +115,9 @@ func _update_players(players_data: Array) -> void:
 
 		# Local player: keep existing instance but update position/health
 		if net_manager and pid == net_manager.peer_id:
+			var previous_alive = local_player_alive
+			local_player_alive = p.get("alive", true)
+			local_max_health = p.get("max_health", local_max_health)
 			if player_instance:
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				player_instance.health = p.get("health", 100)
@@ -114,6 +126,10 @@ func _update_players(players_data: Array) -> void:
 				player_instance.name = str(pid)
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				add_child(player_instance)
+			if player_instance:
+				_update_health_ui(player_instance.health, local_max_health)
+			if previous_alive and not local_player_alive:
+				_on_local_player_died()
 		else:
 			# Remote players
 			if not other_players.has(pid) and player_scene:
@@ -124,6 +140,7 @@ func _update_players(players_data: Array) -> void:
 				other_players[pid] = remote
 			if other_players.has(pid) and is_instance_valid(other_players[pid]):
 				other_players[pid].position = Vector2(p.get("x", 0), p.get("y", 0))
+				other_players[pid].visible = p.get("alive", true)
 
 	# Remove players that disappeared
 	var to_remove := []
@@ -163,7 +180,7 @@ func _update_enemies(enemies_data: Array):
 		if not enemy_id in server_ids:
 			if is_instance_valid(enemies[enemy_id]):
 				enemies[enemy_id].queue_free()
-				print("[ENEMIES] Removed enemy %d from client" % enemy_id)
+				# print("[ENEMIES] Removed enemy %d from client" % enemy_id)
 			to_remove.append(enemy_id)
 	
 	for enemy_id in to_remove:
@@ -171,9 +188,7 @@ func _update_enemies(enemies_data: Array):
 
 func _update_bullets(bullets_data: Array):
 	"""Update bullet positions from server"""
-	if bullets_data.size() > 0:
-		print("[BULLETS] Received %d bullets" % bullets_data.size())
-	
+
 	var server_ids = {}
 	
 	for bullet_data in bullets_data:
@@ -192,7 +207,7 @@ func _update_bullets(bullets_data: Array):
 				var x = bullet_data.get("x", 0.0)
 				var y = bullet_data.get("y", 0.0)
 				bullet.setup(bullet_id, bullet_data.get("shooter_id", 0), Vector2(x, y), vx, vy)
-				print("[BULLETS] Spawned bullet %d at (%.1f, %.1f) with velocity (%.1f, %.1f)" % [bullet_id, x, y, vx, vy])
+				# print("[BULLETS] Spawned bullet %d at (%.1f, %.1f) with velocity (%.1f, %.1f)" % [bullet_id, x, y, vx, vy])
 				bullets[bullet_id] = bullet
 			else:
 				print("[BULLETS] ERROR: bullet_scene not assigned!")
@@ -213,8 +228,19 @@ func _update_bullets(bullets_data: Array):
 	for bullet_id in to_remove:
 		bullets.erase(bullet_id)
 
+func _update_health_ui(current: int, max_value: int):
+	if health_fill == null or health_label == null:
+		return
+	var max_safe = max(max_value, 1)
+	var clamped = clamp(current, 0, max_safe)
+	var percent = float(clamped) / float(max_safe)
+	health_fill.size.x = max(0.0, (HEALTH_BAR_WIDTH - 4.0) * percent)  # subtract 4 for 2px inset on each side
+	health_label.text = "HP %d/%d" % [clamped, max_safe]
+
 func _process(delta):
 	"""Send player input to server"""
+	if not local_player_alive:
+		return
 	if not is_server_mode and net_manager:
 		var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		input_send_timer += delta
@@ -263,6 +289,16 @@ func spawn_enemy():
 		randf_range(50, 750),
 		randf_range(50, 450)
 	)
+
+func _on_local_player_died():
+	if death_handled:
+		return
+	death_handled = true
+	_log_client("Local player died, showing result screen")
+	call_deferred("_show_result_screen")
+
+func _show_result_screen():
+	get_tree().change_scene_to_file("res://scenes/ResultScreen.tscn")
 
 # ------------------------------------------------------------------
 # Logging helpers
