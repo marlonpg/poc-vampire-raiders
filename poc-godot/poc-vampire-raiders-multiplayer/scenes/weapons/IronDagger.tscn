@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[node name="IronDagger" type="Node2D"]
+
+[node name="Blade" type="Polygon2D" parent="."]
+color = Color(0.6, 0.6, 0.6, 1)
+polygon = PackedVector2Array(0, -12, 6, -10, 6, 10, 0, 12, -6, 10, -6, -10)

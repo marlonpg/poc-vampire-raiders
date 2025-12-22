@@ -1,5 +1,7 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.database.PlayerRepository;
+import com.vampireraiders.systems.CombatSystem;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,13 +11,26 @@ public class GameWorld {
     private static final int GRID_SIZE = 32;
 
     private final GameState state;
+    private final CombatSystem combatSystem;
+    private long lastPlayerSaveTime = 0;
+    private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
 
     public GameWorld() {
         this.state = new GameState();
+        this.combatSystem = new CombatSystem();
     }
 
     public void update(float deltaTime) {
         if (!state.isRunning()) return;
+
+        // Periodically save all players to database
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPlayerSaveTime >= PLAYER_SAVE_INTERVAL_MS) {
+            for (Player player : state.getAllPlayers().values()) {
+                PlayerRepository.savePlayer(player);
+            }
+            lastPlayerSaveTime = currentTime;
+        }
 
         // Update all players
         for (Player player : state.getAllPlayers().values()) {
@@ -58,8 +73,8 @@ public class GameWorld {
             for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
                 if (bullet.collidedWith(enemy)) {
                     int bulletDamage = 50;  // One-shot most enemies
-                    enemy.takeDamage(bulletDamage);
                     System.out.println("[COLLISION] Bullet hit enemy! Damage: " + bulletDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
+                    combatSystem.damageEnemy(enemy, bulletDamage, state);  // Use CombatSystem to handle damage and XP rewards
                     state.removeBullet(bullet);
                     break;
                 }

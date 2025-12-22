@@ -3,6 +3,7 @@ package com.vampireraiders.network;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.vampireraiders.config.ServerConfig;
+import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.GameWorld;
 import com.vampireraiders.game.Player;
@@ -140,16 +141,53 @@ public class NetworkManager {
 
     private void handlePlayerJoin(GameClient client, JsonObject message) {
         String username = message.get("username").getAsString();
+        String password = message.has("password") ? message.get("password").getAsString() : "pass";
         float x = message.get("x").getAsFloat();
         float y = message.get("y").getAsFloat();
 
+        // Always create player with current peer ID
         Player player = new Player(client.getPeerId(), username, x, y);
+
+        // Check if player exists in database and load stats
+        if (PlayerRepository.playerExists(username)) {
+            // Validate credentials
+            if (!PlayerRepository.validateCredentials(username, password)) {
+                Logger.warn("Invalid credentials for user: " + username);
+                JsonObject error = new JsonObject();
+                error.addProperty("type", "auth_error");
+                error.addProperty("message", "Invalid username or password");
+                sendToClient(client, error.toString());
+                return;
+            }
+            
+            Player dbPlayer = PlayerRepository.loadPlayerByUsername(username);
+            if (dbPlayer != null) {
+                // Load saved stats
+                player.setLevel(dbPlayer.getLevel());
+                player.setXP(dbPlayer.getXP());
+                player.setMaxHealth(dbPlayer.getMaxHealth());
+                player.setHealth(dbPlayer.getHealth());
+
+                // If the player was saved dead, respawn them at full health on login
+                if (player.getHealth() <= 0) {
+                    player.setHealth(player.getMaxHealth());
+                }
+                Logger.info("Existing player found: " + username + " - Level: " + player.getLevel() + ", XP: " + player.getXP());
+            }
+        } else {
+            // Create new player in database
+            PlayerRepository.createNewPlayer(username, password);
+            Logger.info("New player created: " + username);
+        }
+
+        // Update position for spawn
+        player.setInputDirection(0, 0);
         client.setPlayer(player);
         
         // Add player to game world
         gameWorld.getState().addPlayer(client.getPeerId(), player);
         
-        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ")");
+        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
 
         // Send acknowledgment back
         JsonObject ack = new JsonObject();
@@ -176,6 +214,11 @@ public class NetworkManager {
     private void handleClientDisconnect(int peerId) {
         GameClient client = clients.remove(peerId);
         if (client != null) {
+            // Save player state on disconnect
+            if (client.getPlayer() != null) {
+                PlayerRepository.savePlayer(client.getPlayer());
+                Logger.info("Saved player " + client.getPlayer().getUsername() + " on disconnect");
+            }
             notifyClientDisconnected(peerId);
             Logger.info("Client disconnected: PeerID " + peerId);
         }

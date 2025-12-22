@@ -18,11 +18,16 @@ var input_send_interval: float = 0.1  # Send input every 0.1 seconds
 var local_player_alive: bool = true
 var death_handled: bool = false
 var local_max_health: int = 100
+var local_level: int = 1
+var local_xp: int = 0
 
 const HEALTH_BAR_WIDTH := 220.0
+const XP_BAR_WIDTH := 1280.0
 
 @onready var health_fill: ColorRect = $HUD/MarginRoot/VBoxContainer/BarBG/HealthFill
 @onready var health_label: Label = $HUD/MarginRoot/VBoxContainer/HealthLabel
+@onready var xp_fill: ColorRect = $XPBarHUD/BottomMargin/BarBG/XPFill
+@onready var xp_label: Label = $XPBarHUD/BottomMargin/LevelLabel
 
 func _ready():
 	await get_tree().process_frame
@@ -60,6 +65,7 @@ func _ready():
 
 	_log_role("World ready complete")
 	_update_health_ui(local_max_health, local_max_health)
+	_update_xp_ui(local_xp, local_level)
 
 func _join_as_player():
 	"""Send player join message to Java server"""
@@ -74,13 +80,18 @@ func _join_as_player():
 		return
 	
 	_log_client("Sending player join message")
+	var username = GlobalAuth.logged_in_username if GlobalAuth.is_logged_in() else "Player_%d" % net_manager.peer_id
+	var password = GlobalAuth.logged_in_password if GlobalAuth.is_logged_in() else "pass"
 	var join_msg = {
 		"type": "player_join",
-		"username": "Player_%d" % randi_range(1000, 9999),
+		"username": username,
+		"password": password,
 		"x": 640.0,
 		"y": 360.0
 	}
 	var sent = net_manager.send_json(join_msg)
+	_log_client("Send result: " + str(sent))
+	_log_client("Send result: " + str(sent))
 	_log_client("Send result: " + str(sent))
 	
 	# Spawn player locally
@@ -118,21 +129,28 @@ func _update_players(players_data: Array) -> void:
 			var previous_alive = local_player_alive
 			local_player_alive = p.get("alive", true)
 			local_max_health = p.get("max_health", local_max_health)
+			local_level = p.get("level", local_level)
+			local_xp = p.get("xp", local_xp)
+			#_log_client("Local player data: Level=%d, XP=%d, HP=%d/%d" % [local_level, local_xp, p.get("health", 100), local_max_health])
 			if player_instance:
+				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				player_instance.health = p.get("health", 100)
 			elif player_scene:
+				#_log_client("ERROR: Local player not spawned yet, creating late instance")
 				player_instance = player_scene.instantiate()
 				player_instance.name = str(pid)
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				add_child(player_instance)
 			if player_instance:
 				_update_health_ui(player_instance.health, local_max_health)
+				_update_xp_ui(local_xp, local_level)
 			if previous_alive and not local_player_alive:
 				_on_local_player_died()
 		else:
 			# Remote players
 			if not other_players.has(pid) and player_scene:
+				_log_client("Spawning remote player %d" % pid)
 				var remote = player_scene.instantiate()
 				remote.name = "Player_%d" % pid
 				remote.modulate = Color(0.6, 0.8, 1.0)  # light tint to distinguish
@@ -236,6 +254,18 @@ func _update_health_ui(current: int, max_value: int):
 	var percent = float(clamped) / float(max_safe)
 	health_fill.size.x = max(0.0, (HEALTH_BAR_WIDTH - 4.0) * percent)  # subtract 4 for 2px inset on each side
 	health_label.text = "HP %d/%d" % [clamped, max_safe]
+
+func _update_xp_ui(current: int, level: int):
+	if xp_fill == null or xp_label == null:
+		_log_client("ERROR: XP UI nodes not initialized - xp_fill=%s, xp_label=%s" % [xp_fill, xp_label])
+		return
+	
+	var xp_needed = int(120.0 * pow(level, 1.5))
+	var clamped = clamp(current, 0, xp_needed)
+	var percent = float(clamped) / float(max(xp_needed, 1))
+	xp_fill.size.x = max(0.0, (XP_BAR_WIDTH - 4.0) * percent)
+	xp_label.text = "Level %d: %d / %d XP" % [level, clamped, xp_needed]
+	_log_client("XP Update: Level=%d, Current=%d/%d, Percent=%.2f, BarWidth=%.0f" % [level, clamped, xp_needed, percent, xp_fill.size.x])
 
 func _process(delta):
 	"""Send player input to server"""

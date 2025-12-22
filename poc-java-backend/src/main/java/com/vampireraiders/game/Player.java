@@ -1,5 +1,7 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.database.PlayerRepository;
+
 public class Player {
     private final int peerId;
     private final String username;
@@ -42,8 +44,15 @@ public class Player {
     }
 
     public void takeDamage(int damage) {
+        boolean wasAlive = this.health > 0;
         this.health = Math.max(0, health - damage);
         System.out.println("Player " + username + " took " + damage + " dmg, health=" + health + "/" + maxHealth);
+        
+        // Save immediately on death to preserve final state
+        if (wasAlive && this.health == 0) {
+            System.out.println("Player " + username + " died! Saving state...");
+            PlayerRepository.savePlayer(this);
+        }
     }
 
     public void heal(int amount) {
@@ -51,17 +60,23 @@ public class Player {
     }
 
     public void gainXP(int amount) {
+        int oldXP = this.xp;
         this.xp += amount;
+        System.out.println("Player " + username + " gained " + amount + " XP: " + oldXP + " -> " + xp);
         checkLevelUp();
     }
 
     private void checkLevelUp() {
-        int xpRequired = level * 100;
+        int xpRequired = (int) (120.0 * Math.pow(level, 1.5));
         if (xp >= xpRequired) {
             level++;
             maxHealth += 20;
             health = maxHealth;
             xp = 0;
+            System.out.println("Player " + username + " leveled up to level " + level + "! Max health: " + maxHealth);
+            
+            // Save immediately on level up to prevent progress loss
+            PlayerRepository.savePlayer(this);
         }
     }
 
@@ -77,6 +92,12 @@ public class Player {
     public float getVelocityX() { return velocityX; }
     public float getVelocityY() { return velocityY; }
     public long getLastUpdateTime() { return lastUpdateTime; }
+
+    // Setters (for loading from database)
+    public void setHealth(int h) { this.health = Math.max(0, h); }
+    public void setMaxHealth(int mh) { this.maxHealth = mh; }
+    public void setLevel(int l) { this.level = l; }
+    public void setXP(int x) { this.xp = x; }
 
     public boolean isAlive() {
         return health > 0;

@@ -68,7 +68,9 @@ public class CombatSystem {
 
         if (nearestPlayer != null && closestDistance < 500f) {
             nearestPlayer.gainXP(xpReward);
-            Logger.debug("Player " + nearestPlayer.getUsername() + " gained " + xpReward + " XP");
+            Logger.info("Player " + nearestPlayer.getUsername() + " gained " + xpReward + " XP from enemy kill (type: " + enemy.getType() + "). Total XP: " + nearestPlayer.getXP() + ", Level: " + nearestPlayer.getLevel());
+        } else {
+            Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
         }
     }
 

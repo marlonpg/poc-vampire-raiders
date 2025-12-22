@@ -10,11 +10,22 @@ var velocity := Vector2.ZERO
 var health := 100
 var xp := 0
 
+# Weapon handling
+const DEFAULT_WEAPON := "Steel Sword"
+var _weapon_instance: Node2D = null
+var _weapon_scenes := {
+	"Iron Dagger": preload("res://scenes/weapons/IronDagger.tscn"),
+	"Steel Sword": preload("res://scenes/weapons/SteelSword.tscn"),
+}
+
 var _attack_timer := 0.0
 
 func _ready():
 	print("[PLAYER]", _role(), "node:", name, "authority:", get_multiplayer_authority())
 	# Camera activation is handled centrally in World._on_spawner_spawned to ensure correct timing on clients
+
+	# Equip default weapon locally and on server
+	equip_weapon(DEFAULT_WEAPON)
 
 func _process(delta):
 	if health <= 0:
@@ -101,6 +112,28 @@ func take_damage(amount):
 	health -= amount
 	if health <= 0:
 		queue_free()
+
+# =========================
+# WEAPON EQUIP
+# =========================
+func equip_weapon(name: String):
+	var socket := $WeaponSocket if has_node("WeaponSocket") else null
+	if socket == null:
+		return
+
+	# Remove previous weapon
+	if _weapon_instance and is_instance_valid(_weapon_instance):
+		_weapon_instance.queue_free()
+		_weapon_instance = null
+
+	# Instance new weapon
+	if _weapon_scenes.has(name):
+		var scene: PackedScene = _weapon_scenes[name]
+		_weapon_instance = scene.instantiate()
+		socket.add_child(_weapon_instance)
+		_weapon_instance.position = Vector2.ZERO
+	else:
+		print("[WEAPON] Unknown weapon", name)
 
 # =========================
 # DEBUG
