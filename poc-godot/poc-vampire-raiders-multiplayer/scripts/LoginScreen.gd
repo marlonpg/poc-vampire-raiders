@@ -6,8 +6,6 @@ extends Control
 @onready var login_button = $VBoxContainer/LoginButton
 @onready var register_button = $VBoxContainer/RegisterButton
 
-const SERVER_URL = "http://localhost:8080"
-
 func _ready():
 	# Set default values
 	username_input.text = "admin"
