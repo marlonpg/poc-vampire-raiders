@@ -28,5 +28,7 @@
 
 
 ## Other pending
-Add drag-and-drop between slots
-Add item tooltips on hover to show specs of item
+~~Add drag-and-drop between slots~~ ✅ Done
+~~Add item tooltips on hover to show specs of item~~ ✅ Done
+~~Drag-and-drop: Can drag items between inventory grid slots or swap them~~ ✅ Done
+~~Tooltips: Hover over any item to see name, type, damage, defense, rarity~~ ✅ Done
