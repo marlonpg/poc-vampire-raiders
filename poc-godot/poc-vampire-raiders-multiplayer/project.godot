@@ -11,12 +11,13 @@ config_version=5
 [application]
 
 config/name="Vampire Raiders Multiplayer"
-run/main_scene="res://scenes/World.tscn"
+run/main_scene="res://scenes/LoginScreen.tscn"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
 
+GlobalAuth="*res://scripts/GlobalAuth.gd"
 NetworkManager="*res://scripts/network_manager.gd"
 Bootstrap="*res://scripts/bootstrap.gd"
 

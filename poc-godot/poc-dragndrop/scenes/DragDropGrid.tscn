@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://d3jo82u1qp0sl"]
+
+[ext_resource type="Script" path="res://scripts/DragDropGrid.gd" id="1_ocl5n"]
+
+[node name="DragDropGrid" type="Control"]
+layout_mode=3
+anchors_fill_parent=true
+script = ExtResource("1_ocl5n")
