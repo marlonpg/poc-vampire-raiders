@@ -2,10 +2,7 @@ package com.vampireraiders.systems;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.vampireraiders.game.Bullet;
-import com.vampireraiders.game.Enemy;
-import com.vampireraiders.game.GameState;
-import com.vampireraiders.game.Player;
+import com.vampireraiders.game.*;
 import com.vampireraiders.network.NetworkManager;
 
 public class StateSync {
@@ -68,6 +65,20 @@ public class StateSync {
         }
         message.add("bullets", bulletsArray);
 
+        // Serialize world items (unclaimed drops)
+        JsonArray worldItemsArray = new JsonArray();
+        for (WorldItem item : state.getWorldItems()) {
+            JsonObject itemObj = new JsonObject();
+            itemObj.addProperty("id", item.getId());
+            itemObj.addProperty("item_template_id", item.getItemTemplateId());
+            itemObj.addProperty("name", item.getTemplateName() != null ? item.getTemplateName() : "Item");
+            itemObj.addProperty("x", item.getX());
+            itemObj.addProperty("y", item.getY());
+            itemObj.addProperty("claimed_by", item.getClaimedBy());
+            worldItemsArray.add(itemObj);
+        }
+        message.add("world_items", worldItemsArray);
+
         return message;
     }
 
@@ -83,48 +94,5 @@ public class StateSync {
         if (networkManager != null) {
             networkManager.broadcastMessageToAll(message.toString());
         }
-    }
-
-    public JsonObject createPlayerDamageMessage(int victimId, int damage, int remainingHealth) {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "player_damage");
-        message.addProperty("victim_id", victimId);
-        message.addProperty("damage", damage);
-        message.addProperty("remaining_health", remainingHealth);
-        return message;
-    }
-
-    public JsonObject createPlayerDeathMessage(int playerId) {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "player_death");
-        message.addProperty("player_id", playerId);
-        return message;
-    }
-
-    public JsonObject createEnemySpawnMessage(Enemy enemy) {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "enemy_spawn");
-        message.addProperty("id", enemy.getId());
-        message.addProperty("x", enemy.getX());
-        message.addProperty("y", enemy.getY());
-        message.addProperty("type", enemy.getType().toString());
-        return message;
-    }
-
-    public JsonObject createEnemyDamageMessage(int enemyId, int damage, int remainingHealth) {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "enemy_damage");
-        message.addProperty("enemy_id", enemyId);
-        message.addProperty("damage", damage);
-        message.addProperty("remaining_health", remainingHealth);
-        return message;
-    }
-
-    public JsonObject createEnemyDeathMessage(int enemyId, int xpReward) {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "enemy_death");
-        message.addProperty("enemy_id", enemyId);
-        message.addProperty("xp_reward", xpReward);
-        return message;
     }
 }

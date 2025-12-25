@@ -12,6 +12,7 @@ var net_manager: Node = null
 var enemies: Dictionary = {}  # ID -> enemy node
 var bullets: Dictionary = {}  # ID -> bullet node
 var other_players: Dictionary = {}  # peer_id -> player node (excluding local)
+var world_items: Dictionary = {}  # id -> world item node
 var last_input_dir: Vector2 = Vector2.ZERO
 var input_send_timer: float = 0.0
 var input_send_interval: float = 0.1  # Send input every 0.1 seconds
@@ -20,6 +21,8 @@ var death_handled: bool = false
 var local_max_health: int = 100
 var local_level: int = 1
 var local_xp: int = 0
+
+@onready var world_item_scene: PackedScene = preload("res://scenes/WorldItem.tscn")
 
 const HEALTH_BAR_WIDTH := 220.0
 const XP_BAR_WIDTH := 1280.0
@@ -107,6 +110,7 @@ func _on_game_state_received(data: Dictionary):
 	var players = data.get("players", [])
 	var enemies_data = data.get("enemies", [])
 	var bullets_data = data.get("bullets", [])
+	var world_items_data = data.get("world_items", [])
 	
 	# Update players (local + others)
 	_update_players(players)
@@ -116,6 +120,9 @@ func _on_game_state_received(data: Dictionary):
 	
 	# Update bullets
 	_update_bullets(bullets_data)
+
+	# Update world items (drops)
+	_update_world_items(world_items_data)
 
 func _update_players(players_data: Array) -> void:
 	"""Spawn/update/remove player sprites for all peers."""
@@ -170,6 +177,56 @@ func _update_players(players_data: Array) -> void:
 
 	for pid in to_remove:
 		other_players.erase(pid)
+
+func _update_world_items(items_data: Array):
+	"""Spawn/update/remove world item drops sent by server"""
+	var server_ids := {}
+	for item_data in items_data:
+		var item_id = item_data.get("id")
+		server_ids[item_id] = true
+		if not world_items.has(item_id):
+			if world_item_scene:
+				var node = world_item_scene.instantiate()
+				node.item_id = item_id
+				node.item_name = item_data.get("name", "Item")
+				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
+				node.connect("input_event", Callable(self, "_on_world_item_input").bind(item_id))
+				add_child(node)
+				world_items[item_id] = node
+		else:
+			var node = world_items[item_id]
+			if is_instance_valid(node):
+				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
+				node.set_name_and_color(item_data.get("name", "Item"))
+
+	# Remove items that disappeared server-side (picked up)
+	var to_remove := []
+	for existing_id in world_items.keys():
+		if not server_ids.has(existing_id):
+			if is_instance_valid(world_items[existing_id]):
+				world_items[existing_id].queue_free()
+			to_remove.append(existing_id)
+
+	for existing_id in to_remove:
+		world_items.erase(existing_id)
+
+func _on_world_item_input(viewport, event, shape_idx, item_id):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if net_manager:
+			# Get inventory UI and check if full
+			var inventory_ui = get_node_or_null("/root/CanvasLayer/InventoryUI")
+			if inventory_ui and inventory_ui.is_inventory_full():
+				print("Cannot pickup: inventory is full!")
+				return
+			
+			var payload = {
+				"type": "pickup_item",
+				"world_item_id": item_id
+			}
+			net_manager.send_json(payload)
+			# Auto-request inventory refresh after pickup
+			await get_tree().create_timer(0.1).timeout
+			net_manager.request_inventory()
 
 func _update_enemies(enemies_data: Array):
 	"""Update enemy positions and states from server"""
@@ -265,7 +322,7 @@ func _update_xp_ui(current: int, level: int):
 	var percent = float(clamped) / float(max(xp_needed, 1))
 	xp_fill.size.x = max(0.0, (XP_BAR_WIDTH - 4.0) * percent)
 	xp_label.text = "Level %d: %d / %d XP" % [level, clamped, xp_needed]
-	_log_client("XP Update: Level=%d, Current=%d/%d, Percent=%.2f, BarWidth=%.0f" % [level, clamped, xp_needed, percent, xp_fill.size.x])
+	#_log_client("XP Update: Level=%d, Current=%d/%d, Percent=%.2f, BarWidth=%.0f" % [level, clamped, xp_needed, percent, xp_fill.size.x])
 
 func _process(delta):
 	"""Send player input to server"""

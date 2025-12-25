@@ -53,7 +53,7 @@ public class PlayerRepository {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                int peerId = rs.getInt("id");
+                int databaseId = rs.getInt("id");
                 String dbUsername = rs.getString("username");
                 int level = rs.getInt("level");
                 long experience = rs.getLong("experience");
@@ -61,13 +61,14 @@ public class PlayerRepository {
                 int maxHealth = rs.getInt("max_health");
                 int xp = rs.getInt("xp");
 
-                Player player = new Player(peerId, dbUsername, 640, 360);
+                Player player = new Player(databaseId, dbUsername, 640, 360);
+                player.setDatabaseId(databaseId);  // Also set the database ID explicitly
                 player.setLevel(level);
                 player.setXP(xp);
                 player.setHealth(health);
                 player.setMaxHealth(maxHealth);
 
-                Logger.info("Loaded player " + username + " from database");
+                Logger.info("Loaded player " + username + " from database with ID: " + databaseId);
                 return player;
             }
         } catch (SQLException e) {
@@ -116,6 +117,7 @@ public class PlayerRepository {
             if (generatedKeys.next()) {
                 int playerId = generatedKeys.getInt(1);
                 Player player = new Player(playerId, username, 640, 360);
+                player.setDatabaseId(playerId);  // Set database ID
                 Logger.info("Created new player " + username + " in database with ID: " + playerId);
                 return player;
             }

@@ -1,9 +1,10 @@
-[gd_scene load_steps=4 format=3 uid="uid://dn36ie0to0656"]
+[gd_scene load_steps=5 format=3 uid="uid://dn36ie0to0656"]
 
 [ext_resource type="Script" uid="uid://dc87a4o580xmh" path="res://scripts/world.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://m78hymwx43f1" path="res://scenes/Enemy.tscn" id="2"]
 [ext_resource type="PackedScene" uid="uid://c3wciaba1bcwu" path="res://scenes/Player.tscn" id="3"]
 [ext_resource type="Script" path="res://scripts/grid_background.gd" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/InventoryUI.tscn" id="5"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1")
@@ -48,6 +49,10 @@ color = Color(0.8, 0, 0, 1)
 mouse_filter = 2
 anchor_right = 0.0
 size_flags_horizontal = 0
+
+[node name="InventoryLayer" type="CanvasLayer" parent="."]
+
+[node name="InventoryUI" parent="InventoryLayer" instance=ExtResource("5")]
 
 [node name="XPBarHUD" type="CanvasLayer" parent="."]
 

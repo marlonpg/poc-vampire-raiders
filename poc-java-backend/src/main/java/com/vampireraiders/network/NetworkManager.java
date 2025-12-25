@@ -3,10 +3,13 @@ package com.vampireraiders.network;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.vampireraiders.config.ServerConfig;
+import com.vampireraiders.database.InventoryRepository;
 import com.vampireraiders.database.PlayerRepository;
+import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.GameWorld;
 import com.vampireraiders.game.Player;
+import com.vampireraiders.game.WorldItem;
 import com.vampireraiders.util.Logger;
 
 import java.io.*;
@@ -131,6 +134,18 @@ public class NetworkManager {
             case "player_action":
                 handlePlayerAction(client, message);
                 break;
+            case "pickup_item":
+                handlePickupItem(client, message);
+                break;
+            case "get_inventory":
+                handleGetInventory(client);
+                break;
+            case "move_inventory_item":
+                handleMoveInventoryItem(client, message);
+                break;
+            case "drop_inventory_item":
+                handleDropInventoryItem(client, message);
+                break;
             case "heartbeat":
                 // Just update heartbeat (already done above)
                 break;
@@ -147,6 +162,7 @@ public class NetworkManager {
 
         // Always create player with current peer ID
         Player player = new Player(client.getPeerId(), username, x, y);
+        int databaseId = -1;
 
         // Check if player exists in database and load stats
         if (PlayerRepository.playerExists(username)) {
@@ -162,6 +178,10 @@ public class NetworkManager {
             
             Player dbPlayer = PlayerRepository.loadPlayerByUsername(username);
             if (dbPlayer != null) {
+                // Copy database ID from loaded player
+                databaseId = dbPlayer.getDatabaseId();
+                player.setDatabaseId(databaseId);
+
                 // Load saved stats
                 player.setLevel(dbPlayer.getLevel());
                 player.setXP(dbPlayer.getXP());
@@ -172,12 +192,19 @@ public class NetworkManager {
                 if (player.getHealth() <= 0) {
                     player.setHealth(player.getMaxHealth());
                 }
-                Logger.info("Existing player found: " + username + " - Level: " + player.getLevel() + ", XP: " + player.getXP());
+                Logger.info("Existing player found: " + username + " (dbId=" + databaseId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
             }
         } else {
             // Create new player in database
-            PlayerRepository.createNewPlayer(username, password);
-            Logger.info("New player created: " + username);
+            Player newDbPlayer = PlayerRepository.createNewPlayer(username, password);
+            if (newDbPlayer != null) {
+                databaseId = newDbPlayer.getDatabaseId();
+                player.setDatabaseId(databaseId);
+            } else {
+                Logger.error("Failed to create new player " + username);
+                return;
+            }
+            Logger.info("New player created: " + username + " (dbId=" + databaseId + ")");
         }
 
         // Update position for spawn
@@ -187,7 +214,7 @@ public class NetworkManager {
         // Add player to game world
         gameWorld.getState().addPlayer(client.getPeerId(), player);
         
-        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
+        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ", dbId: " + databaseId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
 
         // Send acknowledgment back
         JsonObject ack = new JsonObject();
@@ -209,6 +236,142 @@ public class NetworkManager {
     private void handlePlayerAction(GameClient client, JsonObject message) {
         String action = message.get("action").getAsString();
         Logger.debug("Player " + client.getPeerId() + " performed action: " + action);
+    }
+
+    private void handlePickupItem(GameClient client, JsonObject message) {
+        if (!message.has("world_item_id")) {
+            Logger.debug("PICKUP: Missing world_item_id in message");
+            return;
+        }
+
+        long worldItemId = message.get("world_item_id").getAsLong();
+        Logger.info("PICKUP: Client " + client.getPeerId() + " attempting to pick up item " + worldItemId);
+        
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) {
+            Logger.warn("PICKUP: Player not found for client " + client.getPeerId());
+            return;
+        }
+
+        WorldItem item = gameWorld.getState().getWorldItemById(worldItemId);
+        Logger.info("PICKUP: Item lookup result: " + (item != null ? "found at (" + item.getX() + "," + item.getY() + ")" : "NOT FOUND"));
+        if (item == null) return;
+
+        double dx = item.getX() - player.getX();
+        double dy = item.getY() - player.getY();
+        double dist = Math.sqrt(dx * dx + dy * dy);
+        double pickupRadius = 96.0; // pixels
+        Logger.info("PICKUP: Distance to item: " + dist + ", radius: " + pickupRadius);
+        if (dist > pickupRadius) {
+            Logger.debug("Pickup rejected: player too far (" + dist + ") from item " + worldItemId);
+            return;
+        }
+
+        // Use database ID for claiming (set during player creation or loaded from DB)
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        Logger.info("PICKUP: Using playerId=" + playerId + " (database=" + player.getDatabaseId() + ", peer=" + player.getPeerId() + ")");
+        
+        // Check if inventory is full (6 cols x 12 rows = 72 slots max)
+        var inventoryItems = InventoryRepository.getInventoryForPlayer(playerId);
+        if (inventoryItems.size() >= 72) {
+            Logger.info("PICKUP: Inventory full for player " + playerId + ", cannot add item");
+            return;
+        }
+        
+        boolean claimed = WorldItemRepository.claimWorldItem(worldItemId, playerId);
+        Logger.info("PICKUP: Claim result: " + claimed);
+        if (!claimed) {
+            Logger.debug("Pickup failed: item already claimed id=" + worldItemId);
+            return;
+        }
+
+        // Find next available slot in inventory grid (6 cols x 12 rows)
+        int[] slot = InventoryRepository.findNextAvailableSlot(playerId, 6, 12);
+        int slotX = slot[0];
+        int slotY = slot[1];
+        Logger.info("PICKUP: Found available slot (" + slotX + "," + slotY + ")");
+        
+        // Add to inventory at the found slot
+        boolean added = InventoryRepository.addInventoryItem(playerId, worldItemId, slotX, slotY);
+        Logger.info("PICKUP: Add to inventory result: " + added);
+        if (!added) {
+            Logger.error("Failed to add world item to inventory id=" + worldItemId + " player=" + playerId);
+        }
+
+        item.setClaimedBy(playerId);
+        gameWorld.getState().removeWorldItem(item);
+        Logger.info("PICKUP: Item removed from world. Pickup complete for item " + worldItemId);
+    }
+
+    private void handleGetInventory(GameClient client) {
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) {
+            Logger.warn("GET_INVENTORY: Player not found for peer " + client.getPeerId());
+            return;
+        }
+
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        Logger.info("GET_INVENTORY: Fetching for playerId=" + playerId + " (peer=" + client.getPeerId() + ", dbId=" + player.getDatabaseId() + ")");
+        
+        var items = InventoryRepository.getInventoryForPlayer(playerId);
+        Logger.info("GET_INVENTORY: Query returned " + items.size() + " items");
+        
+        JsonObject payload = new JsonObject();
+        payload.addProperty("type", "inventory");
+
+        var arr = new com.google.gson.JsonArray();
+        for (var row : items) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("inventory_id", ((Number) row.get("inventory_id")).longValue());
+            obj.addProperty("world_item_id", ((Number) row.get("world_item_id")).longValue());
+            obj.addProperty("item_template_id", ((Number) row.get("item_template_id")).intValue());
+            obj.addProperty("name", (String) row.get("name"));
+            obj.addProperty("type", (String) row.get("type"));
+            obj.addProperty("damage", ((Number) row.get("damage")).intValue());
+            obj.addProperty("defense", ((Number) row.get("defense")).intValue());
+            obj.addProperty("rarity", (String) row.get("rarity"));
+            obj.addProperty("stackable", (Boolean) row.get("stackable"));
+            obj.addProperty("slot_x", ((Number) row.get("slot_x")).intValue());
+            obj.addProperty("slot_y", ((Number) row.get("slot_y")).intValue());
+            arr.add(obj);
+            Logger.info("  - Item: " + row.get("name") + " at slot (" + row.get("slot_x") + "," + row.get("slot_y") + ")");
+        }
+        payload.add("items", arr);
+
+        Logger.info("GET_INVENTORY: Sending " + arr.size() + " items to client");
+        sendToClient(client, payload.toString());
+    }
+
+    private void handleMoveInventoryItem(GameClient client, JsonObject message) {
+        if (!message.has("inventory_id") || !message.has("slot_x") || !message.has("slot_y")) return;
+        long inventoryId = message.get("inventory_id").getAsLong();
+        int slotX = message.get("slot_x").getAsInt();
+        int slotY = message.get("slot_y").getAsInt();
+        boolean ok = InventoryRepository.moveInventoryItem(inventoryId, slotX, slotY);
+        if (!ok) Logger.debug("Move inventory failed id=" + inventoryId);
+    }
+
+    private void handleDropInventoryItem(GameClient client, JsonObject message) {
+        if (!message.has("inventory_id")) return;
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) return;
+        long inventoryId = message.get("inventory_id").getAsLong();
+        Long worldItemId = InventoryRepository.getWorldItemIdForInventory(inventoryId);
+        if (worldItemId == null) return;
+        // Remove from inventory
+        InventoryRepository.deleteInventoryItem(inventoryId);
+        // Unclaim world item back into world at player's current position
+        boolean ok = WorldItemRepository.unclaimWorldItem(worldItemId, player.getX(), player.getY());
+        if (!ok) return;
+        // Fetch info to add into state so clients see the drop
+        var info = WorldItemRepository.getWorldItemInfo(worldItemId);
+        if (info != null) {
+            int templateId = ((Number) info.get("item_template_id")).intValue();
+            String name = (String) info.get("name");
+            WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
+            wi.setTemplateName(name);
+            gameWorld.getState().addWorldItem(wi);
+        }
     }
 
     private void handleClientDisconnect(int peerId) {

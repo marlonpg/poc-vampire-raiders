@@ -4,6 +4,7 @@ import com.vampireraiders.database.PlayerRepository;
 
 public class Player {
     private final int peerId;
+    private int databaseId = -1;  // Loaded from database later
     private final String username;
     private float x;
     private float y;
@@ -55,9 +56,7 @@ public class Player {
         }
     }
 
-    public void heal(int amount) {
-        this.health = Math.min(maxHealth, health + amount);
-    }
+    // Removed unused heal() method
 
     public void gainXP(int amount) {
         int oldXP = this.xp;
@@ -82,6 +81,7 @@ public class Player {
 
     // Getters
     public int getPeerId() { return peerId; }
+    public int getDatabaseId() { return databaseId; }
     public String getUsername() { return username; }
     public float getX() { return x; }
     public float getY() { return y; }
@@ -98,6 +98,7 @@ public class Player {
     public void setMaxHealth(int mh) { this.maxHealth = mh; }
     public void setLevel(int l) { this.level = l; }
     public void setXP(int x) { this.xp = x; }
+    public void setDatabaseId(int id) { this.databaseId = id; }
 
     public boolean isAlive() {
         return health > 0;

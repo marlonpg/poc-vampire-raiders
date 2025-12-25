@@ -158,10 +158,6 @@ public class GameWorld {
         return state;
     }
 
-    public int getWorldWidth() { return WORLD_WIDTH; }
-    public int getWorldHeight() { return WORLD_HEIGHT; }
-    public int getGridSize() { return GRID_SIZE; }
-
     public void start() {
         state.setRunning(true);
     }

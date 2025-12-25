@@ -7,6 +7,7 @@ public class GameState {
     private final Map<Integer, Player> players = new ConcurrentHashMap<>();
     private final List<Enemy> enemies = Collections.synchronizedList(new ArrayList<>());
     private final List<Bullet> bullets = Collections.synchronizedList(new ArrayList<>());
+    private final List<WorldItem> worldItems = Collections.synchronizedList(new ArrayList<>());
     private long worldTime = 0;
     private boolean running = false;
 
@@ -66,6 +67,7 @@ public class GameState {
         players.clear();
         enemies.clear();
         bullets.clear();
+        worldItems.clear();
         worldTime = 0;
     }
 
@@ -79,5 +81,39 @@ public class GameState {
 
     public void removeBullet(Bullet bullet) {
         bullets.remove(bullet);
+    }
+
+    public void addWorldItem(WorldItem item) {
+        worldItems.add(item);
+    }
+
+    public void removeWorldItem(WorldItem item) {
+        worldItems.remove(item);
+    }
+
+    public List<WorldItem> getWorldItems() {
+        return new ArrayList<>(worldItems);
+    }
+
+    public WorldItem getWorldItemById(long id) {
+        for (WorldItem item : worldItems) {
+            if (item.getId() == id) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    public void removeWorldItemById(long id) {
+        WorldItem target = null;
+        for (WorldItem item : worldItems) {
+            if (item.getId() == id) {
+                target = item;
+                break;
+            }
+        }
+        if (target != null) {
+            worldItems.remove(target);
+        }
     }
 }

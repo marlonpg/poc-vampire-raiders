@@ -3,11 +3,13 @@ package com.vampireraiders.systems;
 import com.vampireraiders.game.Enemy;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.Player;
+import com.vampireraiders.game.WorldItem;
+import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
 
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
-    private static final float PLAYER_ATTACK_COOLDOWN = 0.5f; // seconds
+    private final ItemDropService itemDropService = new ItemDropService();
 
     public void update(GameState state, float deltaTime) {
         checkPlayerEnemyCollisions(state);
@@ -71,6 +73,13 @@ public class CombatSystem {
             Logger.info("Player " + nearestPlayer.getUsername() + " gained " + xpReward + " XP from enemy kill (type: " + enemy.getType() + "). Total XP: " + nearestPlayer.getXP() + ", Level: " + nearestPlayer.getLevel());
         } else {
             Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
+        }
+
+        // Always drop an item on enemy death (unclaimed world item)
+        WorldItem dropped = itemDropService.dropAt(enemy.getX(), enemy.getY());
+        if (dropped != null) {
+            state.addWorldItem(dropped);
+            Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
         }
     }
 

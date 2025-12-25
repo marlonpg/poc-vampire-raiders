@@ -24,3 +24,9 @@
 - Integrity: hash/sequence numbers on messages to detect tampering or replays.
 - Observability: per-client rate/latency/error metrics with alerts.
 - Anti-cheat heuristics: flag outlier DPS/movement for review.
+
+
+
+## Other pending
+Add drag-and-drop between slots
+Add item tooltips on hover to show specs of item

@@ -3,6 +3,8 @@ extends Node
 const PORT := 7777
 
 signal game_state_received(data: Dictionary)
+signal inventory_received(data: Dictionary)
+signal item_picked_up(world_item_id: int)
 
 var socket: StreamPeerTCP
 var server_ip: String = ""
@@ -98,6 +100,8 @@ func _handle_server_message(data: Dictionary):
 			print("[NETWORK] Got peer ID: ", peer_id)
 		"game_state":
 			game_state_received.emit(data)
+		"inventory":
+			inventory_received.emit(data)
 		_:
 			pass
 
@@ -125,6 +129,9 @@ func is_tcp_connected() -> bool:
 
 func is_client_mode() -> bool:
 	return socket != null
+
+func request_inventory():
+	send_json({"type": "get_inventory"})
 
 # =========================
 # SIGNALS
