@@ -5,6 +5,7 @@ const PORT := 7777
 signal game_state_received(data: Dictionary)
 signal inventory_received(data: Dictionary)
 signal item_picked_up(world_item_id: int)
+signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2)
 
 var socket: StreamPeerTCP
 var server_ip: String = ""
@@ -102,6 +103,13 @@ func _handle_server_message(data: Dictionary):
 			game_state_received.emit(data)
 		"inventory":
 			inventory_received.emit(data)
+		"damage_event":
+			var target_id = data.get("target_id", -1)
+			var target_type = data.get("target_type", "")
+			var damage = data.get("damage", 0)
+			var x = data.get("x", 0.0)
+			var y = data.get("y", 0.0)
+			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y))
 		_:
 			pass
 

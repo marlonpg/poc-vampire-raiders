@@ -22,10 +22,6 @@ var local_max_health: int = 100
 var local_level: int = 1
 var local_xp: int = 0
 
-# Damage number tracking
-var enemy_last_health: Dictionary = {}  # Track previous health per enemy ID
-var player_last_health: int = 100  # Track previous player health
-
 @onready var world_item_scene: PackedScene = preload("res://scenes/WorldItem.tscn")
 
 const HEALTH_BAR_WIDTH := 220.0
@@ -57,9 +53,7 @@ func _ready():
 		_log_client("Client ready, waiting to join server")
 		if net_manager:
 			# Listen for game state updates
-			# Connect to network signals
 			net_manager.game_state_received.connect(_on_game_state_received)
-			net_manager.damage_event_received.connect(_on_damage_event_received)
 			
 			# Wait for connection to be established (status = 2 = STATUS_CONNECTED)
 			var wait_time = 0.0
@@ -118,8 +112,6 @@ func _on_game_state_received(data: Dictionary):
 	var bullets_data = data.get("bullets", [])
 	var world_items_data = data.get("world_items", [])
 	
-	#print("[GAME_STATE] Received: %d players, %d enemies, %d bullets, %d items" % [players.size(), enemies_data.size(), bullets_data.size(), world_items_data.size()])
-	
 	# Update players (local + others)
 	_update_players(players)
 	
@@ -162,8 +154,6 @@ func _update_players(players_data: Array) -> void:
 				_update_xp_ui(local_xp, local_level)
 			if previous_alive and not local_player_alive:
 				_on_local_player_died()
-			
-			player_last_health = p.get("health", 100)
 		else:
 			# Remote players
 			if not other_players.has(pid) and player_scene:
@@ -240,12 +230,11 @@ func _on_world_item_input(viewport, event, shape_idx, item_id):
 
 func _update_enemies(enemies_data: Array):
 	"""Update enemy positions and states from server"""
-	#print("[ENEMIES] _update_enemies called with %d enemies" % enemies_data.size())
 	var server_ids = {}
 	
 	for enemy_data in enemies_data:
 		var enemy_id = enemy_data.get("id")
-		var current_health = enemy_data.get("health", 0)
+		server_ids[enemy_id] = true
 		
 		if not enemy_id in enemies:
 			# Spawn new enemy
@@ -254,8 +243,6 @@ func _update_enemies(enemies_data: Array):
 				enemy.name = "Enemy_%d" % enemy_id
 				add_child(enemy)
 				enemies[enemy_id] = enemy
-		
-		server_ids[enemy_id] = true
 		
 		# Update enemy position (check if node is still valid)
 		if enemy_id in enemies and is_instance_valid(enemies[enemy_id]):
@@ -268,8 +255,8 @@ func _update_enemies(enemies_data: Array):
 		if not enemy_id in server_ids:
 			if is_instance_valid(enemies[enemy_id]):
 				enemies[enemy_id].queue_free()
+				# print("[ENEMIES] Removed enemy %d from client" % enemy_id)
 			to_remove.append(enemy_id)
-		enemy_last_health.erase(enemy_id)
 	
 	for enemy_id in to_remove:
 		enemies.erase(enemy_id)
@@ -399,55 +386,6 @@ func _on_local_player_died():
 
 func _show_result_screen():
 	get_tree().change_scene_to_file("res://scenes/ResultScreen.tscn")
-
-func _on_damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2):
-	"""Handle damage event from server"""
-	print("[DAMAGE_EVENT] %s ID:%d took %d damage at (%.0f, %.0f)" % [target_type, target_id, damage, position.x, position.y])
-	_show_damage_number(position, damage, target_type == "player")
-
-# ------------------------------------------------------------------
-# Damage Number Display
-# ------------------------------------------------------------------
-
-func _show_damage_number(position: Vector2, damage: int, is_player: bool = false):
-	"""Display a floating damage number at the given position"""
-	var damage_label = Label.new()
-	damage_label.text = str(damage)
-	damage_label.add_theme_font_size_override("font_sizes/font_size", 64)
-	damage_label.z_index = 100  # Ensure it's on top
-	
-	# Set text color with outline
-	if is_player:
-		damage_label.add_theme_color_override("font_color", Color.ORANGE)
-		damage_label.add_theme_color_override("font_outline_color", Color.DARK_ORANGE)
-	else:
-		damage_label.add_theme_color_override("font_color", Color.RED)
-		damage_label.add_theme_color_override("font_outline_color", Color.DARK_RED)
-	
-	damage_label.add_theme_constant_override("outline_size", 4)
-	
-	# Add to scene first to get proper sizing
-	damage_label.position = position
-	add_child(damage_label)
-	
-	# Center the label by adjusting position based on size
-	await get_tree().process_frame
-	var label_size = damage_label.get_rect().size
-	damage_label.position = position - label_size / 2
-	
-	print("[DAMAGE_DISPLAY] Showing %d damage at (%.0f, %.0f) for %s" % [damage, position.x, position.y, "PLAYER" if is_player else "ENEMY"])
-	
-	# Animate floating upward
-	var tween = create_tween()
-	tween.set_trans(Tween.TRANS_QUAD)
-	tween.set_ease(Tween.EASE_OUT)
-	tween.tween_property(damage_label, "position:y", position.y - 120, 1.5)
-	
-	# Fade out after 1 second
-	await get_tree().create_timer(1.0).timeout
-	var fade_tween = create_tween()
-	fade_tween.tween_property(damage_label, "modulate:a", 0.0, 0.5)
-	fade_tween.tween_callback(damage_label.queue_free)
 
 # ------------------------------------------------------------------
 # Logging helpers

@@ -1,11 +1,14 @@
 package com.vampireraiders.systems;
 
+import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.game.Enemy;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.Player;
 import com.vampireraiders.game.WorldItem;
 import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
+
+import java.util.Map;
 
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
@@ -26,9 +29,12 @@ public class CombatSystem {
                                                  enemy.getX(), enemy.getY());
 
                 if (distance < COLLISION_DISTANCE) {
-                    // Enemy damages player
-                    player.takeDamage(enemy.getDamage());
-                    Logger.info("Player " + player.getUsername() + " took " + enemy.getDamage() + " damage");
+                    // Enemy damages player with defense reduction
+                    int enemyDamage = enemy.getDamage();
+                    int playerDefense = calculatePlayerDefense(player);
+                    int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
+                    player.takeDamage(effectiveDamage);
+                    Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage (base: " + enemyDamage + ", defense: " + playerDefense + ")");
 
                     if (!player.isAlive()) {
                         Logger.info("Player " + player.getUsername() + " died");
@@ -70,7 +76,7 @@ public class CombatSystem {
 
         if (nearestPlayer != null && closestDistance < 500f) {
             nearestPlayer.gainXP(xpReward);
-            Logger.info("Player " + nearestPlayer.getUsername() + " gained " + xpReward + " XP from enemy kill (type: " + enemy.getType() + "). Total XP: " + nearestPlayer.getXP() + ", Level: " + nearestPlayer.getLevel());
+            Logger.info("Player " + nearestPlayer.getUsername() + " gained " + xpReward + " XP from enemy kill (type: " + enemy.getTemplateName() + "). Total XP: " + nearestPlayer.getXP() + ", Level: " + nearestPlayer.getLevel());
         } else {
             Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
         }
@@ -87,5 +93,32 @@ public class CombatSystem {
         float dx = x1 - x2;
         float dy = y1 - y2;
         return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private int calculatePlayerDefense(Player player) {
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        Map<String, Map<String, Object>> equipped = EquippedItemRepository.getEquippedItems(playerId);
+        
+        int totalDefense = 0;
+        
+        // Add armor defense
+        Map<String, Object> armor = equipped.get("armor");
+        if (armor != null && armor.get("defense") instanceof Number) {
+            totalDefense += ((Number) armor.get("defense")).intValue();
+        }
+        
+        // Add helmet defense
+        Map<String, Object> helmet = equipped.get("helmet");
+        if (helmet != null && helmet.get("defense") instanceof Number) {
+            totalDefense += ((Number) helmet.get("defense")).intValue();
+        }
+        
+        // Add boots defense
+        Map<String, Object> boots = equipped.get("boots");
+        if (boots != null && boots.get("defense") instanceof Number) {
+            totalDefense += ((Number) boots.get("defense")).intValue();
+        }
+        
+        return totalDefense;
     }
 }

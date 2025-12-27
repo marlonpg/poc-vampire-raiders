@@ -36,6 +36,23 @@ CREATE TABLE IF NOT EXISTS item_templates (
   INDEX idx_type (type)
 );
 
+-- Enemy Templates (enemy definitions)
+CREATE TABLE IF NOT EXISTS enemy_templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  level INT NOT NULL DEFAULT 1,
+  hp INT NOT NULL,
+  defense INT NOT NULL DEFAULT 0,
+  attack INT NOT NULL DEFAULT 0,
+  attack_rate FLOAT NOT NULL DEFAULT 1.0,
+  move_speed FLOAT NOT NULL DEFAULT 0,
+  attack_range FLOAT NOT NULL DEFAULT 1.0,
+  experience INT NOT NULL DEFAULT 0,
+  drops JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_enemy_templates_name (name)
+);
+
 -- World Items (items dropped in the game world)
 CREATE TABLE IF NOT EXISTS world_items (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -107,16 +124,26 @@ CREATE TABLE IF NOT EXISTS item_mods (
 );
 
 -- Sample Item Templates
-INSERT INTO item_templates (name, type, damage, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 'common', 'A basic iron dagger', FALSE),
-('Steel Sword', 'weapon', 15, 'common', 'A well-crafted steel sword', FALSE),
-('Katana', 'weapon', 20, 'common', 'A katana from the east', FALSE),
-('Iron Armor', 'armor', 0, 'common', 'Basic iron armor', FALSE),
-('Plate Armor', 'armor', 0, 'common', 'Sturdy plate armor', FALSE),
-('Health Potion', 'consumable', 0, 'common', 'Restores 50 health', TRUE),
-('Jewel of Strength', 'jewel', 0, 'rare', 'Increase item in 1 level', FALSE),
-('Jewel of Modification', 'jewel', 0, 'rare', 'Add or Modify mods from items', FALSE),
-('Gold Coin', 'loot', 0, 'common', 'Currency', FALSE);
+INSERT INTO item_templates (name, type, damage, defense, rarity, description, stackable) VALUES
+('Iron Dagger', 'weapon', 10, 0, 'common', 'A basic iron dagger', FALSE),
+('Steel Sword', 'weapon', 15, 0, 'common', 'A well-crafted steel sword', FALSE),
+('Katana', 'weapon', 20, 0, 'common', 'A katana from the east', FALSE),
+('Leather Armor', 'armor', 0, 5, 'common', 'Basic iron armor', FALSE),
+('Iron Armor', 'armor', 0, 15, 'common', 'Basic iron armor', FALSE),
+('Plate Armor', 'armor', 0, 30, 'common', 'Sturdy plate armor', FALSE),
+('Health Potion', 'consumable', 0, 0, 'common', 'Restores 50 health', TRUE),
+('Jewel of Strength', 'jewel', 0, 0, 'rare', 'Increase item in 1 level', FALSE),
+('Jewel of Modification', 'jewel', 0, 0, 'rare', 'Add or Modify mods from items', FALSE),
+('Gold Coin', 'loot', 0, 0, 'common', 'Currency', FALSE);
+
+-- Default enemy templates
+INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience, drops)
+VALUES ('Spider', 1, 40, 1, 10, 1.0, 120.0, 1.0, 20, JSON_ARRAY(
+    (SELECT id FROM item_templates WHERE name = 'Iron Dagger' LIMIT 1),
+    (SELECT id FROM item_templates WHERE name = 'Gold Coin' LIMIT 1),
+    (SELECT id FROM item_templates WHERE name = 'Jewel of Strength' LIMIT 1)
+  )
+) ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample Mod Templates
 INSERT INTO mod_templates (mod_type, mod_value, mod_name) VALUES

@@ -45,7 +45,7 @@ public class StateSync {
             enemyObj.addProperty("y", enemy.getY());
             enemyObj.addProperty("health", enemy.getHealth());
             enemyObj.addProperty("max_health", enemy.getMaxHealth());
-            enemyObj.addProperty("type", enemy.getType().toString());
+            enemyObj.addProperty("type", enemy.getTemplateName());
             enemyObj.addProperty("alive", enemy.isAlive());
             enemiesArray.add(enemyObj);
         }
@@ -91,6 +91,28 @@ public class StateSync {
         lastSyncTime = currentTime;
 
         JsonObject message = createGameStateMessage(state);
+        if (networkManager != null) {
+            networkManager.broadcastMessageToAll(message.toString());
+        }
+    }
+
+    /**
+     * Broadcast a damage event to all clients for visual feedback
+     * @param targetId - ID of damaged entity (enemy id or peer_id for players)
+     * @param targetType - "enemy" or "player"
+     * @param damage - effective damage dealt
+     * @param x - world x position
+     * @param y - world y position
+     */
+    public void broadcastDamageEvent(int targetId, String targetType, int damage, float x, float y) {
+        JsonObject message = new JsonObject();
+        message.addProperty("type", "damage_event");
+        message.addProperty("target_id", targetId);
+        message.addProperty("target_type", targetType);
+        message.addProperty("damage", damage);
+        message.addProperty("x", x);
+        message.addProperty("y", y);
+        
         if (networkManager != null) {
             networkManager.broadcastMessageToAll(message.toString());
         }

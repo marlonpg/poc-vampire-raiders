@@ -1,7 +1,9 @@
 package com.vampireraiders.systems;
 
 import com.vampireraiders.config.ServerConfig;
+import com.vampireraiders.database.EnemyTemplateRepository;
 import com.vampireraiders.game.Enemy;
+import com.vampireraiders.game.EnemyTemplate;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.util.Logger;
 
@@ -16,12 +18,25 @@ public class SpawnerSystem {
     private static final int SPAWN_RADIUS = 500;
     private static final int SPAWN_MIN_DISTANCE = 300;
     private static final int PERF_TEST_ENEMY_COUNT = 100;
+    private EnemyTemplate spiderTemplate;
 
     public SpawnerSystem(GameState gameState) {
         this.gameState = gameState;
         this.maxEnemies = ServerConfig.getInstance().getMaxEnemies();
         this.spawnInterval = ServerConfig.getInstance().getSpawnerInterval();
         this.lastSpawnTime = System.currentTimeMillis();
+        
+        // Load enemy templates from database
+        EnemyTemplateRepository.loadTemplates();
+        this.spiderTemplate = EnemyTemplateRepository.getByName("Spider");
+        
+        if (spiderTemplate == null) {
+            Logger.error("Failed to load Spider template from database!");
+        } else {
+            Logger.info("Loaded Spider template: HP=" + spiderTemplate.getHp() + 
+                       ", Attack=" + spiderTemplate.getAttack() + 
+                       ", Speed=" + spiderTemplate.getMoveSpeed());
+        }
     }
     
     public void spawnInitialEnemiesForPerfTest() {
@@ -45,8 +60,10 @@ public class SpawnerSystem {
             float x = centerX + (float)(Math.cos(angle) * circleRadius);
             float y = centerY + (float)(Math.sin(angle) * circleRadius);
             
-            Enemy enemy = Enemy.createRandomEnemy(x, y);
-            gameState.addEnemy(enemy);
+            if (spiderTemplate != null) {
+                Enemy enemy = new Enemy(x, y, spiderTemplate);
+                gameState.addEnemy(enemy);
+            }
         }
         Logger.debug("Performance test enemies spawned in circle: " + gameState.getEnemyCount());
     }
@@ -71,12 +88,15 @@ public class SpawnerSystem {
         // Spawn 1-2 enemies per spawn cycle
         int spawnCount = random.nextInt(2) + 1;
         for (int i = 0; i < spawnCount && gameState.getEnemyCount() < maxEnemies; i++) {
-            Enemy enemy = Enemy.createRandomEnemy(
-                getRandomSpawnX(),
-                getRandomSpawnY()
-            );
-            gameState.addEnemy(enemy);
-            Logger.debug("Enemy spawned: ID " + enemy.getId() + " Type: " + enemy.getType());
+            if (spiderTemplate != null) {
+                Enemy enemy = new Enemy(
+                    getRandomSpawnX(),
+                    getRandomSpawnY(),
+                    spiderTemplate
+                );
+                gameState.addEnemy(enemy);
+                Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName());
+            }
         }
     }
 

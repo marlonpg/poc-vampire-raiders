@@ -1,9 +1,6 @@
 package com.vampireraiders.game;
 
-import java.util.Random;
-
 public class Enemy {
-    private static final Random random = new Random();
     private static int idCounter = 1;
     
     private final int id;
@@ -11,36 +8,30 @@ public class Enemy {
     private float y;
     private int health;
     private final int maxHealth;
-    private int damage;
+    private final int damage;
+    private final int defense;
     private final float speed;
-    private EnemyType type;
+    private final float attackRate;
+    private final float attackRange;
+    private final int experienceReward;
+    private final int level;
+    private final String templateName;
     private long spawnTime;
 
-    public enum EnemyType {
-        BASIC(50, 10, 100f),
-        FAST(30, 5, 200f),
-        STRONG(100, 20, 80f);
-
-        public final int hp;
-        public final int dmg;
-        public final float spd;
-
-        EnemyType(int hp, int dmg, float spd) {
-            this.hp = hp;
-            this.dmg = dmg;
-            this.spd = spd;
-        }
-    }
-
-    public Enemy(float x, float y, EnemyType type) {
+    public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
         this.x = x;
         this.y = y;
-        this.type = type;
-        this.maxHealth = type.hp;
-        this.health = type.hp;
-        this.damage = type.dmg;
-        this.speed = type.spd;
+        this.templateName = template.getName();
+        this.level = template.getLevel();
+        this.maxHealth = template.getHp();
+        this.health = template.getHp();
+        this.damage = template.getAttack();
+        this.defense = template.getDefense();
+        this.speed = template.getMoveSpeed();
+        this.attackRate = template.getAttackRate();
+        this.attackRange = template.getAttackRange();
+        this.experienceReward = template.getExperience();
         this.spawnTime = System.currentTimeMillis();
     }
 
@@ -69,7 +60,7 @@ public class Enemy {
     }
 
     public int getRewardXP() {
-        return type.hp + type.dmg * 2;
+        return experienceReward;
     }
 
     // Getters
@@ -79,12 +70,12 @@ public class Enemy {
     public int getHealth() { return health; }
     public int getMaxHealth() { return maxHealth; }
     public int getDamage() { return damage; }
+    public int getDefense() { return defense; }
     public float getSpeed() { return speed; }
-    public EnemyType getType() { return type; }
+    public float getAttackRate() { return attackRate; }
+    public float getAttackRange() { return attackRange; }
+    public int getExperienceReward() { return experienceReward; }
+    public int getLevel() { return level; }
+    public String getTemplateName() { return templateName; }
     public long getSpawnTime() { return spawnTime; }
-
-    public static Enemy createRandomEnemy(float x, float y) {
-        EnemyType[] types = EnemyType.values();
-        return new Enemy(x, y, types[random.nextInt(types.length)]);
-    }
 }

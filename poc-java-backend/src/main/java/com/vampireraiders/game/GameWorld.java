@@ -1,9 +1,12 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.systems.CombatSystem;
+import com.vampireraiders.systems.StateSync;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class GameWorld {
     private static final int WORLD_WIDTH = 8192;  // 256 tiles * 32 pixels (Lorencia-sized map)
@@ -12,12 +15,18 @@ public class GameWorld {
 
     private final GameState state;
     private final CombatSystem combatSystem;
+    private StateSync stateSync;
     private long lastPlayerSaveTime = 0;
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
 
     public GameWorld() {
         this.state = new GameState();
         this.combatSystem = new CombatSystem();
+        this.stateSync = null;
+    }
+
+    public void setStateSync(StateSync stateSync) {
+        this.stateSync = stateSync;
     }
 
     public void update(float deltaTime) {
@@ -72,9 +81,17 @@ public class GameWorld {
         for (Bullet bullet : new ArrayList<>(state.getAllBullets())) {
             for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
                 if (bullet.collidedWith(enemy)) {
-                    int bulletDamage = 50;  // One-shot most enemies
-                    System.out.println("[COLLISION] Bullet hit enemy! Damage: " + bulletDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
-                    combatSystem.damageEnemy(enemy, bulletDamage, state);  // Use CombatSystem to handle damage and XP rewards
+                    Player shooter = state.getPlayer(bullet.getShooterId());
+                    int bulletDamage = calculatePlayerDamage(shooter);
+                    int effectiveDamage = Math.max(1, bulletDamage - enemy.getDefense());
+                    System.out.println("[COLLISION] Bullet hit enemy! Base Damage: " + bulletDamage + ", Enemy Defense: " + enemy.getDefense() + ", Effective Damage: " + effectiveDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
+                    combatSystem.damageEnemy(enemy, effectiveDamage, state);  // Use CombatSystem to handle damage and XP rewards
+                    
+                    // Broadcast damage event for client-side visual feedback
+                    if (stateSync != null) {
+                        stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
+                    }
+                    
                     state.removeBullet(bullet);
                     break;
                 }
@@ -164,5 +181,22 @@ public class GameWorld {
 
     public void stop() {
         state.setRunning(false);
+    }
+
+    private int calculatePlayerDamage(Player shooter) {
+        if (shooter == null) {
+            return 1;  // Fallback when shooter not found
+        }
+
+        int playerId = shooter.getDatabaseId() > 0 ? shooter.getDatabaseId() : shooter.getPeerId();
+        Map<String, Map<String, Object>> equipped = EquippedItemRepository.getEquippedItems(playerId);
+        Map<String, Object> weapon = equipped.get("weapon");
+
+        int weaponDamage = 0;
+        if (weapon != null && weapon.get("damage") instanceof Number) {
+            weaponDamage = ((Number) weapon.get("damage")).intValue();
+        }
+
+        return 5 + weaponDamage;  // Base damage 1 plus weapon damage
     }
 }
