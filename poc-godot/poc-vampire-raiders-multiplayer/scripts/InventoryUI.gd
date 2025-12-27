@@ -18,7 +18,8 @@ var equipped_items = {
 	"armor": null,
 	"boots": null
 }
-var drag_from_index: int = -1  # Track which item is being dragged
+var drag_from_index: int = -1  # Track which item is being dragged from inventory
+var drag_from_equipped: String = ""  # Track which equipped item is being dragged
 
 func _ready():
 	if grid_container == null:
@@ -62,7 +63,10 @@ func _initialize_grid():
 
 func _setup_equipment_slots():
 	"""Setup equipment slot drag-and-drop"""
-	for slot in [weapon_slot, helmet_slot, armor_slot, boots_slot]:
+	var slot_types = {"weapon": weapon_slot, "helmet": helmet_slot, "armor": armor_slot, "boots": boots_slot}
+	
+	for slot_type in slot_types:
+		var slot = slot_types[slot_type]
 		var style = StyleBoxFlat.new()
 		style.bg_color = Color(0.15, 0.15, 0.2, 1)
 		style.border_width_left = 2
@@ -71,6 +75,16 @@ func _setup_equipment_slots():
 		style.border_width_bottom = 2
 		style.border_color = Color(0.6, 0.5, 0.3, 1)
 		slot.add_theme_stylebox_override("panel", style)
+		
+		# Attach equipment slot script
+		var slot_script = load("res://scripts/EquipmentSlot.gd")
+		if slot_script:
+			slot.set_script(slot_script)
+			slot.slot_type = slot_type
+			slot.parent_inventory_ui = self
+		
+		# Enable mouse input on slot
+		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _input(event):
 	"""Toggle inventory with 'I' key"""
@@ -90,14 +104,21 @@ func load_inventory():
 func _on_inventory_received(data: Dictionary):
 	"""Populate grid with items from server"""
 	var items: Array = data.get("items", [])
-	print("[INVENTORY] Received inventory update with %d items" % items.size())
+	var equipped: Dictionary = data.get("equipped", {})
+	
 	_clear_grid()
+	
+	# Load inventory items
 	for item_data in items:
 		var slot_x = item_data.get("slot_x", 0)
 		var slot_y = item_data.get("slot_y", 0)
 		var index = slot_y * GRID_COLS + slot_x
 		_place_item_at(item_data, index)
-	print("[INVENTORY] Inventory display updated with %d items" % inventory_items.size())
+	
+	# Load equipped items
+	for slot_type in equipped:
+		equipped_items[slot_type] = equipped[slot_type]
+		_update_equipment_slot_display(slot_type)
 
 func _place_item_at(item_data: Dictionary, grid_index: int):
 	"""Place an item in the grid"""
@@ -144,23 +165,18 @@ func _place_item_at(item_data: Dictionary, grid_index: int):
 	
 	# Attach drag source script BEFORE adding to tree so _ready() is called
 	var icon_script = load("res://scripts/ItemIcon.gd")
-	print("[INVENTORY] Loading ItemIcon script: %s" % icon_script)
 	if icon_script:
-		print("[INVENTORY] Script loaded, attaching to ColorRect at index %d" % grid_index)
 		item_icon.set_script(icon_script)
-		print("[INVENTORY] set_script called on ColorRect")
 		
 		# Set properties BEFORE adding to tree
 		item_icon.inventory_index = grid_index
 		item_icon.item_data = item_data
 		item_icon.parent_inventory_ui = self
-		print("[INVENTORY] Properties set on ColorRect")
 	else:
-		print("[INVENTORY] ERROR: Failed to load ItemIcon script")
+		return
 	
 	# NOW add to tree - this will trigger _ready() on the script
 	cell.add_child(item_icon)
-	print("[INVENTORY] Placed item %s at index %d" % [item_data.get("name", "?"), grid_index])
 
 func _clear_grid():
 	inventory_items.clear()
@@ -182,27 +198,18 @@ func _build_tooltip(item: Dictionary) -> String:
 
 func _can_drop_data(at_position: Vector2, data) -> bool:
 	var valid = typeof(data) == TYPE_DICTIONARY and data.has("from_index")
-	if valid:
-		print("[INVENTORY] Can drop at position: %s" % at_position)
 	return valid
 
 func _drop_data(at_position: Vector2, data):
 	if typeof(data) != TYPE_DICTIONARY or not data.has("from_index"):
-		print("[INVENTORY] Invalid drop data")
 		return
 	var from_index: int = data["from_index"]
-	print("[INVENTORY] Drop detected from index %d at position %s" % [from_index, at_position])
 	var to_index: int = _cell_index_at(at_position)
-	print("[INVENTORY] Target cell index: %d" % to_index)
-	if to_index < 0:
-		print("[INVENTORY] Drop target not found")
-		return
 	_move_item(from_index, to_index)
 
 func _cell_index_at(local_pos: Vector2) -> int:
 	# Determine which cell was dropped on by iterating children
 	var global_mouse_pos = get_global_mouse_position()
-	print("[INVENTORY] Looking for cell at global pos: %s" % global_mouse_pos)
 	
 	for i in range(grid_container.get_child_count()):
 		var cell := grid_container.get_child(i) as Control
@@ -210,36 +217,25 @@ func _cell_index_at(local_pos: Vector2) -> int:
 			continue
 		var cell_rect := Rect2(cell.global_position, cell.size)
 		if cell_rect.has_point(global_mouse_pos):
-			print("[INVENTORY] Found cell %d at position %s" % [i, cell.global_position])
 			return i
 	
-	print("[INVENTORY] No cell found at position")
 	return -1
 
 func _move_item(from_index: int, to_index: int):
-	print("[INVENTORY] Moving item from index %d to %d" % [from_index, to_index])
-	
 	if not inventory_items.has(from_index):
-		print("[INVENTORY] Source index has no item")
 		return
 	
 	# Prevent moving to same slot
 	if from_index == to_index:
-		print("[INVENTORY] Source and target are the same")
 		return
 	
 	var from_item = inventory_items[from_index]
 	var to_item = inventory_items.get(to_index)
 	
-	print("[INVENTORY] Item to move: %s (inventory_id=%s)" % [from_item.get("name", "?"), from_item.get("inventory_id", "?")])
-	if to_item:
-		print("[INVENTORY] Target has item: %s (inventory_id=%s)" % [to_item.get("name", "?"), to_item.get("inventory_id", "?")])
-	
 	# Send move request to server first
 	if net_manager and from_item.has("inventory_id"):
 		var slot_x = to_index % GRID_COLS
 		var slot_y = int(to_index / GRID_COLS)
-		print("[INVENTORY] Sending move_inventory_item: from_index=%d, to_index=%d, slot_x=%d, slot_y=%d" % [from_index, to_index, slot_x, slot_y])
 		
 		net_manager.send_json({
 			"type": "move_inventory_item",
@@ -252,7 +248,6 @@ func _move_item(from_index: int, to_index: int):
 		if to_item and to_item.has("inventory_id"):
 			var from_slot_x = from_index % GRID_COLS
 			var from_slot_y = int(from_index / GRID_COLS)
-			print("[INVENTORY] Sending swap: moving target item to source position")
 			
 			net_manager.send_json({
 				"type": "move_inventory_item",
@@ -264,24 +259,17 @@ func _move_item(from_index: int, to_index: int):
 		# Auto-refresh inventory from server after a small delay to sync with server state
 		await get_tree().create_timer(0.1).timeout
 		if net_manager:
-			print("[INVENTORY] Auto-requesting inventory refresh after move")
 			net_manager.request_inventory()
 	else:
-		print("[INVENTORY] Cannot move: net_manager=%s, has_inventory_id=%s" % [net_manager != null, from_item.has("inventory_id")])
+		return
 
 func _request_drop_from_inventory(index: int):
-	print("[INVENTORY] Drop request for item at index %d" % index)
-	print("[INVENTORY] Current inventory size: %d items" % inventory_items.size())
-	
 	if not inventory_items.has(index):
-		print("[INVENTORY] No item at index %d" % index)
 		return
 	
 	var item = inventory_items[index]
-	print("[INVENTORY] Dropping item: %s (inventory_id=%s)" % [item.get("name", "?"), item.get("inventory_id", "?")])
 	
 	if net_manager and item.has("inventory_id"):
-		print("[INVENTORY] Sending drop_inventory_item to server")
 		net_manager.send_json({
 			"type": "drop_inventory_item",
 			"inventory_id": item["inventory_id"]
@@ -290,20 +278,15 @@ func _request_drop_from_inventory(index: int):
 		# Clear from UI immediately
 		var cell = grid_container.get_child(index)
 		if is_instance_valid(cell):
-			print("[INVENTORY] Clearing cell %d" % index)
 			for c in cell.get_children():
 				c.queue_free()
 		
 		inventory_items.erase(index)
-		print("[INVENTORY] Item dropped successfully, inventory now has %d items" % inventory_items.size())
 		
 		# Auto-refresh inventory from server after a small delay
 		await get_tree().create_timer(0.1).timeout
 		if net_manager:
-			print("[INVENTORY] Auto-requesting inventory refresh after drop")
 			net_manager.request_inventory()
-	else:
-		print("[INVENTORY] Cannot drop: net_manager=%s, has_inventory_id=%s" % [net_manager != null, item.has("inventory_id")])
 
 func equip_item(item_data: Dictionary, slot_name: String):
 	"""Equip an item to a slot"""
@@ -315,6 +298,58 @@ func unequip_item(slot_name: String):
 	var item = equipped_items[slot_name]
 	equipped_items[slot_name] = null
 
+func _equip_item_from_inventory(inventory_index: int, slot_type: String):
+	"""Equip an item from inventory to an equipment slot"""
+	if not inventory_items.has(inventory_index):
+		return
+	
+	var item = inventory_items[inventory_index]
+	
+	# Check if item type matches slot type
+	if item.get("type") != slot_type:
+		return
+	
+	# Get the cell and clear all its children immediately with free()
+	var cell = grid_container.get_child(inventory_index)
+	if is_instance_valid(cell):
+		for c in cell.get_children():
+			c.free()
+
+	# If there's already an item in the slot, swap them
+	if equipped_items[slot_type] != null:
+		var old_item = equipped_items[slot_type]
+		# Put the old item in the inventory slot where the new item came from
+		inventory_items[inventory_index] = old_item
+		# Re-render the inventory cell with the old item
+		_place_item_at(old_item, inventory_index)
+	else:
+		# No item in slot, just remove from inventory
+		inventory_items.erase(inventory_index)
+
+	# Equip new item
+	equipped_items[slot_type] = item
+
+	# Update equipment slot display
+	_update_equipment_slot_display(slot_type)
+	
+	# Send equip message to server
+	if net_manager and item.has("inventory_id"):
+		var swap_item_id = null
+		if equipped_items[slot_type] != null and equipped_items[slot_type] != item:
+			swap_item_id = equipped_items[slot_type].get("inventory_id")
+		
+		net_manager.send_json({
+			"type": "equip_item",
+			"inventory_id": item["inventory_id"],
+			"slot_type": slot_type,
+			"swap_inventory_id": swap_item_id
+		})
+	
+	# Refresh inventory display
+	await get_tree().create_timer(0.1).timeout
+	if net_manager:
+		net_manager.request_inventory()
+
 func is_inventory_full() -> bool:
 	"""Check if inventory has reached max capacity"""
 	return inventory_items.size() >= (GRID_ROWS * GRID_COLS)
@@ -322,11 +357,137 @@ func is_inventory_full() -> bool:
 func _set_dragging(index: int):
 	"""Set the item being dragged"""
 	drag_from_index = index
-	print("[INVENTORY] Drag from index set to: %d" % index)
 
 func _get_dragging() -> int:
 	"""Get the item being dragged"""
 	return drag_from_index
 
-func _on_close_button_pressed():
-	visible = false
+func _update_equipment_slot_display(slot_type: String):
+	"""Update the visual display of an equipment slot"""
+	var slot_panel = null
+	
+	match slot_type:
+		"weapon":
+			slot_panel = weapon_slot
+		"helmet":
+			slot_panel = helmet_slot
+		"armor":
+			slot_panel = armor_slot
+		"boots":
+			slot_panel = boots_slot
+	
+	if not slot_panel:
+		return
+	
+	# Clear existing item display - use queue_free() to avoid freeing locked objects
+	for child in slot_panel.get_children():
+		child.queue_free()
+	
+	# If slot is empty, just show empty slot
+	if equipped_items[slot_type] == null:
+		return
+	
+	# Create visual representation of equipped item
+	var item = equipped_items[slot_type]
+	var item_icon = ColorRect.new()
+	item_icon.custom_minimum_size = Vector2(48, 48)
+	item_icon.size = Vector2(48, 48)
+	item_icon.position = Vector2(1, 1)
+	item_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	item_icon.tooltip_text = _build_tooltip(item)
+	item_icon.visible = true
+	
+	# Color based on item type
+	match item.get("type", ""):
+		"weapon":
+			item_icon.color = Color(0.8, 0.3, 0.3, 1)
+		"armor":
+			item_icon.color = Color(0.3, 0.5, 0.8, 1)
+		"consumable":
+			item_icon.color = Color(0.3, 0.8, 0.3, 1)
+		_:
+			item_icon.color = Color(0.6, 0.6, 0.6, 1)
+	
+	# Add label
+	var label = Label.new()
+	label.text = item.get("name", "Item")
+	label.add_theme_font_size_override("font_size", 8)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.position = Vector2(0, 20)
+	label.size = Vector2(50, 20)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_icon.add_child(label)
+	
+	# Attach EquippedItemIcon script to make it draggable
+	var equipped_script = load("res://scripts/EquippedItemIcon.gd")
+	if equipped_script:
+		item_icon.set_script(equipped_script)
+		item_icon.slot_type = slot_type
+		item_icon.item_data = item
+		item_icon.parent_inventory_ui = self
+	
+	slot_panel.add_child(item_icon)
+
+func _set_dragging_equipped(slot_type: String):
+	"""Set the equipped item being dragged"""
+	drag_from_equipped = slot_type
+
+func _get_dragging_equipped() -> String:
+	"""Get the equipped item being dragged"""
+	return drag_from_equipped
+
+func _unequip_item_to_inventory(slot_type: String):
+	"""Unequip an item and return it to inventory at first available slot"""
+	if equipped_items[slot_type] == null:
+		return
+	
+	var item = equipped_items[slot_type]
+	
+	# Find an empty slot in inventory
+	var empty_index = -1
+	for i in range(GRID_ROWS * GRID_COLS):
+		if not inventory_items.has(i):
+			empty_index = i
+			break
+	
+	if empty_index < 0:
+		return  # Inventory is full
+	
+	_unequip_item_to_inventory_at_index(slot_type, empty_index)
+
+func _unequip_item_to_inventory_at_index(slot_type: String, inventory_index: int):
+	"""Unequip an item and place it at a specific inventory index"""
+	if equipped_items[slot_type] == null:
+		return
+	
+	var item = equipped_items[slot_type]
+	var existing_item = inventory_items.get(inventory_index)
+	
+	# If there's already an item at target, swap them
+	if existing_item != null:
+		equipped_items[slot_type] = existing_item
+		inventory_items[inventory_index] = item
+		_update_equipment_slot_display(slot_type)
+	else:
+		# Move equipped item to inventory
+		inventory_items[inventory_index] = item
+		equipped_items[slot_type] = null
+		_update_equipment_slot_display(slot_type)
+	
+	# Send unequip message to server
+	if net_manager and item.has("inventory_id"):
+		var swap_item_id = existing_item.get("inventory_id") if existing_item else null
+		
+		net_manager.send_json({
+			"type": "unequip_item",
+			"inventory_id": item["inventory_id"],
+			"slot_type": slot_type,
+			"target_inventory_index": inventory_index,
+			"swap_inventory_id": swap_item_id
+		})
+	
+	# Refresh inventory display
+	await get_tree().create_timer(0.1).timeout
+	if net_manager:
+		net_manager.request_inventory()

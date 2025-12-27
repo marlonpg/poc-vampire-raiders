@@ -1,10 +1,10 @@
 extends Panel
 
-@export var grid_index: int = -1
+@export var slot_type: String = ""  # weapon, helmet, armor, boots
 var parent_inventory_ui: Node = null
 
 func _gui_input(event: InputEvent) -> void:
-	# Handle mouse button releases on empty cells
+	# Handle mouse button releases on equipment slot
 	if event is InputEventMouseButton:
 		var mbe := event as InputEventMouseButton
 		
@@ -13,5 +13,5 @@ func _gui_input(event: InputEvent) -> void:
 			if parent_inventory_ui and parent_inventory_ui.has_method("_get_dragging"):
 				var drag_from = parent_inventory_ui._get_dragging()
 				if drag_from >= 0:
-					parent_inventory_ui._move_item(drag_from, grid_index)
+					parent_inventory_ui._equip_item_from_inventory(drag_from, slot_type)
 				parent_inventory_ui._set_dragging(-1)

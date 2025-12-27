@@ -3,6 +3,7 @@ package com.vampireraiders.network;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.vampireraiders.config.ServerConfig;
+import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.InventoryRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.database.WorldItemRepository;
@@ -145,6 +146,12 @@ public class NetworkManager {
                 break;
             case "drop_inventory_item":
                 handleDropInventoryItem(client, message);
+                break;
+            case "equip_item":
+                handleEquipItem(client, message);
+                break;
+            case "unequip_item":
+                handleUnequipItem(client, message);
                 break;
             case "heartbeat":
                 // Just update heartbeat (already done above)
@@ -338,7 +345,28 @@ public class NetworkManager {
         }
         payload.add("items", arr);
 
-        Logger.info("GET_INVENTORY: Sending " + arr.size() + " items to client");
+        // Add equipped items
+        var equipped = EquippedItemRepository.getEquippedItems(playerId);
+        JsonObject equippedObj = new JsonObject();
+        for (var entry : equipped.entrySet()) {
+            String slotType = entry.getKey();
+            var item = entry.getValue();
+            JsonObject itemObj = new JsonObject();
+            itemObj.addProperty("inventory_id", ((Number) item.get("inventory_id")).longValue());
+            itemObj.addProperty("world_item_id", ((Number) item.get("world_item_id")).longValue());
+            itemObj.addProperty("item_template_id", ((Number) item.get("item_template_id")).intValue());
+            itemObj.addProperty("name", (String) item.get("name"));
+            itemObj.addProperty("type", (String) item.get("type"));
+            itemObj.addProperty("damage", ((Number) item.get("damage")).intValue());
+            itemObj.addProperty("defense", ((Number) item.get("defense")).intValue());
+            itemObj.addProperty("rarity", (String) item.get("rarity"));
+            itemObj.addProperty("stackable", (Boolean) item.get("stackable"));
+            equippedObj.add(slotType, itemObj);
+            Logger.info("  - Equipped: " + slotType + " = " + item.get("name"));
+        }
+        payload.add("equipped", equippedObj);
+
+        Logger.info("GET_INVENTORY: Sending " + arr.size() + " items and " + equipped.size() + " equipped items to client");
         sendToClient(client, payload.toString());
     }
 
@@ -371,6 +399,46 @@ public class NetworkManager {
             WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
             wi.setTemplateName(name);
             gameWorld.getState().addWorldItem(wi);
+        }
+    }
+
+    private void handleEquipItem(GameClient client, JsonObject message) {
+        if (!message.has("inventory_id") || !message.has("slot_type")) return;
+        
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) return;
+        
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        long inventoryId = message.get("inventory_id").getAsLong();
+        String slotType = message.get("slot_type").getAsString();
+        
+        // If there was an old item, unequip it first
+        if (message.has("swap_inventory_id")) {
+            var swapId = message.get("swap_inventory_id");
+            if (!swapId.isJsonNull()) {
+                // The old item stays in inventory at the slot where the new item came from
+                // So we just need to clear any conflicting equipment slots
+            }
+        }
+        
+        boolean ok = EquippedItemRepository.equipItem(playerId, inventoryId, slotType);
+        if (ok) {
+            Logger.info("EQUIP: Player " + playerId + " equipped item " + inventoryId + " to slot " + slotType);
+        }
+    }
+
+    private void handleUnequipItem(GameClient client, JsonObject message) {
+        if (!message.has("inventory_id") || !message.has("slot_type")) return;
+        
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) return;
+        
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        String slotType = message.get("slot_type").getAsString();
+        
+        boolean ok = EquippedItemRepository.unequipItem(playerId, slotType);
+        if (ok) {
+            Logger.info("UNEQUIP: Player " + playerId + " unequipped item from slot " + slotType);
         }
     }
 
