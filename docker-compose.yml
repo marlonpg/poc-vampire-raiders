@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MySQL Database Service
   mysql:
@@ -44,7 +42,9 @@ services:
     networks:
       - vampire-network
     restart: on-failure
-    command: java -cp target/vampire-raiders-server.jar com.vampireraiders.VampireRaidersServer
+    # Use Dockerfile CMD to run the packaged JAR
+    # (Alternatively uncomment the explicit command below)
+    # command: ["java", "-jar", "vampire-raiders-server.jar"]
 
 volumes:
   mysql_data:

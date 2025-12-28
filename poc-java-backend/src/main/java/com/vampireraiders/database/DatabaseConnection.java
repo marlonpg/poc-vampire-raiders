@@ -13,9 +13,22 @@ public class DatabaseConnection {
     static {
         try {
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl("jdbc:mysql://localhost:3306/vampire_raiders");
-            config.setUsername("game_user");
-            config.setPassword("gamepassword");
+
+            // Read configuration from environment (with sane defaults for Docker Compose)
+            String host = env("DATABASE_HOST", "mysql");
+            String port = env("DATABASE_PORT", "3306");
+            String dbName = env("DATABASE_NAME", "vampire_raiders");
+            String username = env("DATABASE_USER", "game_user");
+            String password = env("DATABASE_PASSWORD", "gamepassword");
+
+            String jdbcUrl = String.format(
+                "jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+                host, port, dbName
+            );
+
+            config.setJdbcUrl(jdbcUrl);
+            config.setUsername(username);
+            config.setPassword(password);
             config.setMaximumPoolSize(10);
             config.setMinimumIdle(2);
             config.setConnectionTimeout(30000);
@@ -23,7 +36,7 @@ public class DatabaseConnection {
             config.setMaxLifetime(1800000);
 
             dataSource = new HikariDataSource(config);
-            Logger.info("Database connection pool initialized");
+            Logger.info("Database connection pool initialized: " + jdbcUrl + " (user=" + username + ")");
         } catch (Exception e) {
             Logger.error("Failed to initialize database connection pool: " + e.getMessage());
             e.printStackTrace();
@@ -38,5 +51,10 @@ public class DatabaseConnection {
         if (dataSource != null) {
             dataSource.close();
         }
+    }
+
+    private static String env(String key, String def) {
+        String v = System.getenv(key);
+        return (v != null && !v.isEmpty()) ? v : def;
     }
 }
