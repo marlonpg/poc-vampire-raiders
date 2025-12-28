@@ -11,12 +11,13 @@ public class Enemy {
     private final int damage;
     private final int defense;
     private final float speed;
-    private final float attackRate;
+    private final float attackRate;  // attacks per second
     private final float attackRange;
     private final int experienceReward;
     private final int level;
     private final String templateName;
     private long spawnTime;
+    private long lastAttackTime = 0;  // Track when enemy last attacked
 
     public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
@@ -53,6 +54,16 @@ public class Enemy {
 
     public void takeDamage(int damage) {
         this.health = Math.max(0, health - damage);
+    }
+
+    public boolean canAttack() {
+        // attackRate is attacks per second, so cooldown = 1000 / attackRate milliseconds
+        long attackCooldownMs = (long) (1000.0 / attackRate);
+        return System.currentTimeMillis() - lastAttackTime >= attackCooldownMs;
+    }
+
+    public void recordAttack() {
+        lastAttackTime = System.currentTimeMillis();
     }
 
     public boolean isAlive() {

@@ -13,6 +13,15 @@ import java.util.Map;
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
     private final ItemDropService itemDropService = new ItemDropService();
+    private StateSync stateSync;
+
+    public CombatSystem() {
+        this.stateSync = null;
+    }
+
+    public void setStateSync(StateSync stateSync) {
+        this.stateSync = stateSync;
+    }
 
     public void update(GameState state, float deltaTime) {
         checkPlayerEnemyCollisions(state);
@@ -29,15 +38,23 @@ public class CombatSystem {
                                                  enemy.getX(), enemy.getY());
 
                 if (distance < COLLISION_DISTANCE) {
-                    // Enemy damages player with defense reduction
-                    int enemyDamage = enemy.getDamage();
-                    int playerDefense = calculatePlayerDefense(player);
-                    int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
-                    player.takeDamage(effectiveDamage);
-                    Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage (base: " + enemyDamage + ", defense: " + playerDefense + ")");
+                    // Enemy damages player with defense reduction (only if enemy can attack)
+                    if (enemy.canAttack()) {
+                        int enemyDamage = enemy.getDamage();
+                        int playerDefense = calculatePlayerDefense(player);
+                        int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
+                        player.takeDamage(effectiveDamage);
+                        enemy.recordAttack();  // Update enemy's last attack time
+                        Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage (base: " + enemyDamage + ", defense: " + playerDefense + ")");
 
-                    if (!player.isAlive()) {
-                        Logger.info("Player " + player.getUsername() + " died");
+                        // Broadcast damage event for client-side visual feedback
+                        if (stateSync != null) {
+                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY());
+                        }
+
+                        if (!player.isAlive()) {
+                            Logger.info("Player " + player.getUsername() + " died");
+                        }
                     }
                 }
             }

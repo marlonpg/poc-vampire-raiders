@@ -19,6 +19,7 @@ public class GameLoop implements Runnable {
         this.spawnerSystem = spawnerSystem;
         this.stateSync = stateSync;
         this.combatSystem = new CombatSystem();
+        this.combatSystem.setStateSync(stateSync);  // Set StateSync for damage event broadcasting
         this.tickRate = tickRate;
     }
 
