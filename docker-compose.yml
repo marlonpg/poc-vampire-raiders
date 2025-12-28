@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: vampire-raiders-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: vampire_raiders
+      MYSQL_USER: game_user
+      MYSQL_PASSWORD: gamepassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - vampire-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
+
+  # Java Backend Service
+  java-backend:
+    build:
+      context: ./poc-java-backend
+      dockerfile: Dockerfile
+    container_name: vampire-raiders-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_NAME: vampire_raiders
+      DATABASE_USER: game_user
+      DATABASE_PASSWORD: gamepassword
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+    ports:
+      - "7777:7777"
+    networks:
+      - vampire-network
+    restart: on-failure
+    command: java -cp target/vampire-raiders-server.jar com.vampireraiders.VampireRaidersServer
+
+volumes:
+  mysql_data:
+
+networks:
+  vampire-network:
+    driver: bridge
