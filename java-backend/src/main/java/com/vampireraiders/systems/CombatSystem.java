@@ -98,8 +98,8 @@ public class CombatSystem {
             Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
         }
 
-        // Always drop an item on enemy death (unclaimed world item)
-        WorldItem dropped = itemDropService.dropAt(enemy.getX(), enemy.getY());
+        // Drop item based on enemy template drop rates
+        WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
         if (dropped != null) {
             state.addWorldItem(dropped);
             Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");

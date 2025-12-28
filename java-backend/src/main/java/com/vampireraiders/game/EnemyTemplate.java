@@ -1,7 +1,5 @@
 package com.vampireraiders.game;
 
-import java.util.List;
-
 public class EnemyTemplate {
     private final int id;
     private final String name;
@@ -13,10 +11,9 @@ public class EnemyTemplate {
     private final float moveSpeed;
     private final float attackRange;
     private final int experience;
-    private final List<Integer> drops;
 
     public EnemyTemplate(int id, String name, int level, int hp, int defense, int attack, 
-                        float attackRate, float moveSpeed, float attackRange, int experience, List<Integer> drops) {
+                        float attackRate, float moveSpeed, float attackRange, int experience) {
         this.id = id;
         this.name = name;
         this.level = level;
@@ -27,7 +24,6 @@ public class EnemyTemplate {
         this.moveSpeed = moveSpeed;
         this.attackRange = attackRange;
         this.experience = experience;
-        this.drops = drops;
     }
 
     public int getId() { return id; }
@@ -40,5 +36,4 @@ public class EnemyTemplate {
     public float getMoveSpeed() { return moveSpeed; }
     public float getAttackRange() { return attackRange; }
     public int getExperience() { return experience; }
-    public List<Integer> getDrops() { return drops; }
 }

@@ -4,6 +4,7 @@ public class Enemy {
     private static int idCounter = 1;
     
     private final int id;
+    private final int templateId;
     private float x;
     private float y;
     private int health;
@@ -21,6 +22,7 @@ public class Enemy {
 
     public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
+        this.templateId = template.getId();
         this.x = x;
         this.y = y;
         this.templateName = template.getName();
@@ -76,6 +78,7 @@ public class Enemy {
 
     // Getters
     public int getId() { return id; }
+    public int getTemplateId() { return templateId; }
     public float getX() { return x; }
     public float getY() { return y; }
     public int getHealth() { return health; }

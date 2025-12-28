@@ -26,8 +26,9 @@ public class SpawnerSystem {
         this.spawnInterval = ServerConfig.getInstance().getSpawnerInterval();
         this.lastSpawnTime = System.currentTimeMillis();
         
-        // Load enemy templates from database
+        // Load enemy templates and item drops from database
         EnemyTemplateRepository.loadTemplates();
+        com.vampireraiders.database.EnemyItemRepository.loadCache();
         this.spiderTemplate = EnemyTemplateRepository.getByName("Spider");
         
         if (spiderTemplate == null) {
