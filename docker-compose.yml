@@ -24,7 +24,7 @@ services:
   # Java Backend Service
   java-backend:
     build:
-      context: ./poc-java-backend
+      context: ./java-backend
       dockerfile: Dockerfile
     container_name: vampire-raiders-backend
     depends_on:

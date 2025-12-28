@@ -63,7 +63,7 @@ docker-compose restart java-backend
 
 ## 🎮 Connecting from Godot
 
-1. Open Godot project: `poc-godot/poc-vampire-raiders-multiplayer/project.godot`
+1. Open Godot project: `poc-vampire-raiders-multiplayer/project.godot`
 2. Run the scene (F5)
 3. Click "Start Client"
 4. Enter server IP: `localhost` (or your machine's IP for LAN)

@@ -87,7 +87,7 @@ poc-vampire-raiders/
 │   ├── init.sql                   ← Database schema
 │   └── docker-compose.yml         ← Old DB-only compose
 │
-├── poc-java-backend/               ← Game Server
+├── java-backend/               ← Game Server
 │   ├── Dockerfile                 ← Server container
 │   ├── pom.xml                    ← Maven config
 │   ├── src/                       ← Java source
@@ -95,10 +95,20 @@ poc-vampire-raiders/
 │   └── start.bat                  ← Manual start (not needed with Docker)
 │
 └── poc-godot/
-    ├── poc-vampire-raiders-multiplayer/  ← Game Client
+    ├── poc-vampire-raiders-multiplayer/  ← Game Client (Godot 4)
     │   ├── project.godot          ← Open this in Godot
+    │   ├── scenes/                ← Game scenes
+    │   │   ├── ui/                ← UI scenes (menus, inventory, HUD)
+    │   │   ├── gameplay/          ← Gameplay scenes (world, player, enemies)
+    │   │   └── weapons/           ← Weapon scenes
     │   ├── scripts/               ← Game code
-    │   └── scenes/                ← Game scenes
+    │   │   ├── ui/                ← UI scripts
+    │   │   ├── gameplay/          ← Gameplay scripts
+    │   │   ├── network/           ← Network client code
+    │   │   └── autoload/          ← Global singletons
+    │   ├── assets/                ← Art, audio, fonts
+    │   ├── resources/             ← Game data (items, loot tables)
+    │   └── themes/                ← UI themes
     └── vampire-raiders/           ← Finished game (not used yet)
 ```
 ---
