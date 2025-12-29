@@ -47,7 +47,7 @@ public class EquippedItemRepository {
         String sql = "SELECT e.weapon, e.helmet, e.armor, e.boots, " +
                 "inv.id as inv_id, inv.slot_x, inv.slot_y, " +
                 "wi.id as world_item_id, wi.item_template_id, " +
-                "it.name, it.type, it.damage, it.defense, it.rarity, it.stackable " +
+                "it.name, it.type, it.damage, it.defense, it.attack_speed, it.attack_range, it.rarity, it.stackable " +
                 "FROM equipped_items e " +
                 "LEFT JOIN inventory inv ON (e.weapon = inv.id OR e.helmet = inv.id OR e.armor = inv.id OR e.boots = inv.id) " +
                 "LEFT JOIN world_items wi ON inv.world_item_id = wi.id " +
@@ -84,6 +84,8 @@ public class EquippedItemRepository {
                         item.put("type", rs.getString("type"));
                         item.put("damage", rs.getInt("damage"));
                         item.put("defense", rs.getInt("defense"));
+                        item.put("attack_speed", rs.getFloat("attack_speed"));
+                        item.put("attack_range", rs.getFloat("attack_range"));
                         item.put("rarity", rs.getString("rarity"));
                         item.put("stackable", rs.getBoolean("stackable"));
                         
@@ -96,5 +98,10 @@ public class EquippedItemRepository {
         }
         
         return equipped;
+    }
+
+    public static Map<String, Object> getEquippedWeapon(int playerId) {
+        Map<String, Map<String, Object>> equipped = getEquippedItems(playerId);
+        return equipped.get("weapon");
     }
 }

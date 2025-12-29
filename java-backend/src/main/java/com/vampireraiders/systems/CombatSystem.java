@@ -1,6 +1,8 @@
 package com.vampireraiders.systems;
 
 import com.vampireraiders.database.EquippedItemRepository;
+import com.vampireraiders.database.InventoryRepository;
+import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.Enemy;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.Player;
@@ -9,6 +11,7 @@ import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
 
 import java.util.Map;
+import java.util.Random;
 
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
@@ -54,6 +57,8 @@ public class CombatSystem {
 
                         if (!player.isAlive()) {
                             Logger.info("Player " + player.getUsername() + " died");
+                            // On death: drop all equipped + inventory items to the world
+                            dropAllItemsForPlayer(state, player);
                         }
                     }
                 }
@@ -137,5 +142,89 @@ public class CombatSystem {
         }
         
         return totalDefense;
+    }
+
+    /**
+     * Drops all items (equipped and inventory) for the given player into the world
+     * when they die. Items are scattered around the player's position to avoid stacking.
+     */
+    private void dropAllItemsForPlayer(GameState state, Player player) {
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        float baseX = player.getX();
+        float baseY = player.getY();
+
+        int index = 0; // Used to spread items around
+
+        // 1) Drop equipped items first (weapon, armor, helmet, boots)
+        Map<String, Map<String, Object>> equipped = EquippedItemRepository.getEquippedItems(playerId);
+        for (Map.Entry<String, Map<String, Object>> entry : equipped.entrySet()) {
+            String slotType = entry.getKey();
+            Map<String, Object> item = entry.getValue();
+            if (item == null) continue;
+
+            long inventoryId = ((Number) item.get("inventory_id")).longValue();
+            long worldItemId = ((Number) item.get("world_item_id")).longValue();
+
+            float[] pos = computeScatterPosition(baseX, baseY, index++);
+            float dropX = pos[0];
+            float dropY = pos[1];
+
+            // Unclaim world item and move it to drop position
+            boolean unclaimed = WorldItemRepository.unclaimWorldItem(worldItemId, dropX, dropY);
+            // Remove from inventory table
+            boolean deleted = InventoryRepository.deleteInventoryItem(inventoryId);
+            // Clear equipped slot
+            EquippedItemRepository.unequipItem(playerId, slotType);
+
+            // Add to game state for sync
+            var info = WorldItemRepository.getWorldItemInfo(worldItemId);
+            if (info != null) {
+                int templateId = ((Number) info.get("item_template_id")).intValue();
+                String name = (String) info.get("name");
+                WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
+                dropped.setTemplateName(name);
+                state.addWorldItem(dropped);
+                Logger.info("DEATH DROP (equipped): player=" + playerId + ", slot=" + slotType + ", worldItemId=" + worldItemId +
+                        ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);
+            }
+        }
+
+        // 2) Drop remaining inventory items
+        var invItems = InventoryRepository.getInventoryForPlayer(playerId);
+        for (var row : invItems) {
+            long inventoryId = ((Number) row.get("inventory_id")).longValue();
+            long worldItemId = ((Number) row.get("world_item_id")).longValue();
+            int templateId = ((Number) row.get("item_template_id")).intValue();
+            String name = (String) row.get("name");
+
+            float[] pos = computeScatterPosition(baseX, baseY, index++);
+            float dropX = pos[0];
+            float dropY = pos[1];
+
+            boolean unclaimed = WorldItemRepository.unclaimWorldItem(worldItemId, dropX, dropY);
+            boolean deleted = InventoryRepository.deleteInventoryItem(inventoryId);
+
+            WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
+            dropped.setTemplateName(name);
+            state.addWorldItem(dropped);
+            Logger.info("DEATH DROP (inventory): player=" + playerId + ", worldItemId=" + worldItemId +
+                    ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);
+        }
+    }
+
+    /**
+     * Compute a scattered position around (x,y) using a ring pattern with slight jitter.
+     */
+    private float[] computeScatterPosition(float x, float y, int index) {
+        // Arrange items around the player in expanding rings
+        int ring = Math.max(0, index / 8); // 8 items per ring
+        int posInRing = index % 8;
+        double angle = (Math.PI * 2.0) * (posInRing / 8.0) + (ring * 0.3); // slight rotation per ring
+        float radius = 48f + ring * 24f; // start at 48px, expand by 24px per ring
+        float jitterX = (float) ((new Random().nextDouble() - 0.5) * 12.0); // small random jitter
+        float jitterY = (float) ((new Random().nextDouble() - 0.5) * 12.0);
+        float dropX = x + (float) (Math.cos(angle) * radius) + jitterX;
+        float dropY = y + (float) (Math.sin(angle) * radius) + jitterY;
+        return new float[]{dropX, dropY};
     }
 }

@@ -17,7 +17,7 @@ public class ItemTemplateRepository {
     private static volatile List<ItemTemplate> cache = Collections.emptyList();
 
     public static synchronized void loadTemplates() {
-        String sql = "SELECT id, name, type, damage, defense, rarity, stackable, description FROM item_templates";
+        String sql = "SELECT id, name, type, damage, defense, attack_speed, attack_range, rarity, stackable, description FROM item_templates";
         List<ItemTemplate> templates = new ArrayList<>();
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -31,6 +31,8 @@ public class ItemTemplateRepository {
                         rs.getString("type"),
                         rs.getInt("damage"),
                         rs.getInt("defense"),
+                        rs.getFloat("attack_speed"),
+                        rs.getFloat("attack_range"),
                         rs.getString("rarity"),
                         rs.getBoolean("stackable"),
                         rs.getString("description")

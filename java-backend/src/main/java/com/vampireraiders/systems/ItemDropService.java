@@ -23,10 +23,12 @@ public class ItemDropService {
 
         // Roll for each possible drop based on drop rate
         double roll = RANDOM.nextDouble() * 100.0; // 0.0 to 100.0
+        Logger.debug("DROP: enemyTemplate=" + enemyTemplateId + ", roll=" + roll + ", options=" + possibleDrops.size());
         double cumulative = 0.0;
         
         for (EnemyItem drop : possibleDrops) {
             cumulative += drop.getDropRate();
+            Logger.debug("  - checking itemTemplate=" + drop.getItemTemplateId() + ", rate=" + drop.getDropRate() + ", cumulative=" + cumulative);
             if (roll <= cumulative) {
                 // This item dropped!
                 List<ItemTemplate> templates = ItemTemplateRepository.getCache();
@@ -49,6 +51,7 @@ public class ItemDropService {
         }
         
         // No drop (roll exceeded total drop rates)
+        Logger.debug("DROP: no item rolled (roll=" + roll + ", total=" + cumulative + ")");
         return null;
     }
 }

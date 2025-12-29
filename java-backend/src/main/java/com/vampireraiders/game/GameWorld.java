@@ -1,12 +1,10 @@
 package com.vampireraiders.game;
 
-import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.systems.CombatSystem;
 import com.vampireraiders.systems.StateSync;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class GameWorld {
     private static final int WORLD_WIDTH = 8192;  // 256 tiles * 32 pixels (Lorencia-sized map)
@@ -123,7 +121,7 @@ public class GameWorld {
 
     private Enemy findNearestEnemyForAttack(Player player) {
         Enemy nearest = null;
-        float closestDistance = 300f;  // Attack range
+        float attackRange = player.getEquippedAttackRange();  // Use player's equipped weapon range
 
         for (Enemy enemy : state.getAllEnemies()) {
             if (!enemy.isAlive()) continue;
@@ -132,8 +130,8 @@ public class GameWorld {
             float dy = enemy.getY() - player.getY();
             float distance = (float) Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < closestDistance) {
-                closestDistance = distance;
+            if (distance < attackRange) {
+                attackRange = distance;
                 nearest = enemy;
             }
         }
@@ -188,15 +186,7 @@ public class GameWorld {
             return 1;  // Fallback when shooter not found
         }
 
-        int playerId = shooter.getDatabaseId() > 0 ? shooter.getDatabaseId() : shooter.getPeerId();
-        Map<String, Map<String, Object>> equipped = EquippedItemRepository.getEquippedItems(playerId);
-        Map<String, Object> weapon = equipped.get("weapon");
-
-        int weaponDamage = 0;
-        if (weapon != null && weapon.get("damage") instanceof Number) {
-            weaponDamage = ((Number) weapon.get("damage")).intValue();
-        }
-
-        return 5 + weaponDamage;  // Base damage 1 plus weapon damage
+            // Use cached weapon damage instead of querying database
+            return 15 + shooter.getCachedWeaponDamage();  // Base damage 5 plus weapon damage
     }
 }

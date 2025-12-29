@@ -33,6 +33,11 @@ var player_last_health: int = 100  # Track previous player health
 const HEALTH_BAR_WIDTH := 220.0
 const XP_BAR_WIDTH := 1280.0
 
+# Enemy sprite mapping by template name
+var enemy_sprites = {
+	"Spider": "res://assets/enemies/spider.png"
+}
+
 @onready var health_fill: ColorRect = $HUD/MarginRoot/VBoxContainer/BarBG/HealthFill
 @onready var health_label: Label = $HUD/MarginRoot/VBoxContainer/HealthLabel
 @onready var xp_fill: ColorRect = $XPBarHUD/BottomMargin/BarBG/XPFill
@@ -253,15 +258,18 @@ func _update_enemies(enemies_data: Array):
 	
 	for enemy_data in enemies_data:
 		var enemy_id = enemy_data.get("id")
-		var current_health = enemy_data.get("health", 0)
+		var template_name = enemy_data.get("type", "Unknown")
 		
+		# Create enemy if it doesn't exist yet (for late joiners)
 		if not enemy_id in enemies:
-			# Spawn new enemy
 			if enemy_scene:
 				var enemy = enemy_scene.instantiate()
 				enemy.name = "Enemy_%d" % enemy_id
+				enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
 				add_child(enemy)
 				enemies[enemy_id] = enemy
+				
+				_load_enemy_sprite(enemy, template_name)
 		
 		server_ids[enemy_id] = true
 		
@@ -281,6 +289,23 @@ func _update_enemies(enemies_data: Array):
 	
 	for enemy_id in to_remove:
 		enemies.erase(enemy_id)
+
+func _load_enemy_sprite(enemy: Node2D, template_name: String):
+	"""Load sprite for enemy based on template name"""
+	if template_name in enemy_sprites:
+		var sprite_path = enemy_sprites[template_name]
+		var sprite = enemy.get_node_or_null("Sprite2D")
+		if sprite:
+			var texture = load(sprite_path)
+			if texture:
+				sprite.texture = texture
+				print("[ENEMY] Loaded sprite for %s: %s" % [template_name, sprite_path])
+			else:
+				print("[ENEMY] Failed to load texture: %s" % sprite_path)
+		else:
+			print("[ENEMY] No Sprite2D node in Enemy scene")
+	else:
+		print("[ENEMY] No sprite mapping for template: %s" % template_name)
 
 func _update_bullets(bullets_data: Array):
 	"""Update bullet positions from server"""

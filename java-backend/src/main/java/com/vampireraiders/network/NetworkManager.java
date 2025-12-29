@@ -429,6 +429,8 @@ public class NetworkManager {
         boolean ok = EquippedItemRepository.equipItem(playerId, inventoryId, slotType);
         if (ok) {
             Logger.info("EQUIP: Player " + playerId + " equipped item " + inventoryId + " to slot " + slotType);
+                // Refresh player's equipped items cache
+                player.refreshEquippedItemsCache();
         }
     }
 
@@ -444,6 +446,8 @@ public class NetworkManager {
         boolean ok = EquippedItemRepository.unequipItem(playerId, slotType);
         if (ok) {
             Logger.info("UNEQUIP: Player " + playerId + " unequipped item from slot " + slotType);
+                // Refresh player's equipped items cache
+                player.refreshEquippedItemsCache();
         }
     }
 

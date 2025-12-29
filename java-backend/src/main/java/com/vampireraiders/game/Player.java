@@ -1,6 +1,8 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.PlayerRepository;
+import java.util.Map;
 
 public class Player {
     private final int peerId;
@@ -17,7 +19,12 @@ public class Player {
     private final float speed = 200f;
     private long lastUpdateTime;
     private long lastAttackTime = 0;
-    private final long attackCooldownMs = 500;  // Attack every 0.5 seconds
+    private final long baseAttackCooldownMs = 1000;  // Base: 1 attack per second
+    
+        // Cached equipped weapon stats (to avoid DB queries every attack)
+        private float cachedAttackSpeed = 1.0f;
+        private float cachedAttackRange = 200.0f;
+        private int cachedWeaponDamage = 0;
 
     public Player(int peerId, String username, float x, float y) {
         this.peerId = peerId;
@@ -98,14 +105,75 @@ public class Player {
     public void setMaxHealth(int mh) { this.maxHealth = mh; }
     public void setLevel(int l) { this.level = l; }
     public void setXP(int x) { this.xp = x; }
-    public void setDatabaseId(int id) { this.databaseId = id; }
+        public void setDatabaseId(int id) { 
+            this.databaseId = id;
+            // Load equipped items cache when database ID is set
+            refreshEquippedItemsCache();
+        }
 
     public boolean isAlive() {
         return health > 0;
     }
 
     public boolean canAttack() {
-        return System.currentTimeMillis() - lastAttackTime >= attackCooldownMs;
+        long cooldown = getAttackCooldown();
+        return System.currentTimeMillis() - lastAttackTime >= cooldown;
+    }
+
+    public long getAttackCooldown() {
+        // Get equipped weapon's attack speed
+        float attackSpeed = getEquippedAttackSpeed();
+        // Cooldown = base / attack_speed (higher attack_speed = faster attacks)
+        return (long) (baseAttackCooldownMs / attackSpeed);
+    }
+
+    public float getEquippedAttackSpeed() {
+        return cachedAttackSpeed;
+    }
+
+    public float getEquippedAttackRange() {
+        return cachedAttackRange;
+    }
+    
+    public int getCachedWeaponDamage() {
+        return cachedWeaponDamage;
+    }
+    
+    /**
+     * Refreshes the cached equipped weapon stats from the database.
+     * Should be called whenever a player equips/unequips items.
+     */
+    public void refreshEquippedItemsCache() {
+        if (databaseId <= 0) {
+            return; // No database ID yet, can't load
+        }
+        
+        Map<String, Object> weapon = EquippedItemRepository.getEquippedWeapon(databaseId);
+        if (weapon != null) {
+            // Extract weapon stats
+            if (weapon.containsKey("attack_speed")) {
+                cachedAttackSpeed = (Float) weapon.get("attack_speed");
+            } else {
+                cachedAttackSpeed = 1.0f;
+            }
+            
+            if (weapon.containsKey("attack_range")) {
+                cachedAttackRange = (Float) weapon.get("attack_range");
+            } else {
+                cachedAttackRange = 200.0f;
+            }
+            
+            if (weapon.containsKey("damage")) {
+                cachedWeaponDamage = ((Number) weapon.get("damage")).intValue();
+            } else {
+                cachedWeaponDamage = 0;
+            }
+        } else {
+            // No weapon equipped, use defaults
+            cachedAttackSpeed = 1.0f;
+            cachedAttackRange = 200.0f;
+            cachedWeaponDamage = 0;
+        }
     }
 
     public void recordAttack() {
