@@ -7,9 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GameWorld {
-    private static final int WORLD_WIDTH = 8192;  // 256 tiles * 32 pixels (Lorencia-sized map)
-    private static final int WORLD_HEIGHT = 8192; // 256 tiles * 32 pixels
-    private static final int GRID_SIZE = 32;
+    private static final Tilemap tilemap = new Tilemap();
+    private static final int GRID_SIZE = 64;
+    private static final int WORLD_WIDTH = Tilemap.MAP_WIDTH * GRID_SIZE;
+    private static final int WORLD_HEIGHT = Tilemap.MAP_HEIGHT * GRID_SIZE;
 
     private final GameState state;
     private final CombatSystem combatSystem;
@@ -42,8 +43,22 @@ public class GameWorld {
         // Update all players
         for (Player player : state.getAllPlayers().values()) {
             if (player.isAlive()) {
+                float oldX = player.getX();
+                float oldY = player.getY();
+                
                 player.update(deltaTime);
-                clampPlayerPosition(player);
+                
+                float newX = player.getX();
+                float newY = player.getY();
+                
+                // Check if new position is walkable
+                if (!isWalkable(newX, newY)) {
+                    // Revert to old position if blocked
+                    player.setPosition(oldX, oldY);
+                } else {
+                    // Apply world bounds clamping only if walkable
+                    clampPlayerPosition(player);
+                }
             }
         }
 
@@ -143,10 +158,13 @@ public class GameWorld {
         float x = player.getX();
         float y = player.getY();
         
+        // Clamp to world bounds
         if (x < 0) x = 0;
         if (x > WORLD_WIDTH) x = WORLD_WIDTH;
         if (y < 0) y = 0;
         if (y > WORLD_HEIGHT) y = WORLD_HEIGHT;
+        
+        player.setPosition(x, y);
     }
 
     private Player findNearestPlayer(float x, float y) {
@@ -187,6 +205,39 @@ public class GameWorld {
         }
 
             // Use cached weapon damage instead of querying database
-            return 15 + shooter.getCachedWeaponDamage();  // Base damage 5 plus weapon damage
+            return 15 + shooter.getCachedWeaponDamage();  // Base damage 15 plus weapon damage
+    }
+    
+    // Utilities
+    public static int getWorldWidth() { return WORLD_WIDTH; }
+    public static int getWorldHeight() { return WORLD_HEIGHT; }
+    public static int getGridSize() { return GRID_SIZE; }
+    
+    /**
+     * Check if position is in safe zone
+     */
+    public static boolean isInSafeZone(float x, float y) {
+        return tilemap.isInSafeZone(x, y);
+    }
+    
+    /**
+     * Check if position is walkable (tile-based)
+     */
+    public static boolean isWalkable(float x, float y) {
+        return tilemap.isWalkable(x, y);
+    }
+    
+    /**
+     * Check if position is in hunting zone (where enemies spawn)
+     */
+    public static boolean isInHuntingZone(float x, float y) {
+        return tilemap.isInHuntingZone(x, y);
+    }
+    
+    /**
+     * Get the tilemap for visualization or debugging
+     */
+    public static Tilemap getTilemap() {
+        return tilemap;
     }
 }

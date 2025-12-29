@@ -47,9 +47,9 @@ public class SpawnerSystem {
         Logger.debug("Spawning " + PERF_TEST_ENEMY_COUNT + " enemies in circle formation...");
         
         // Spawn enemies in a circle around player spawn point (640, 360)
-        float centerX = 640f;
-        float centerY = 360f;
-        float circleRadius = 350f; // Just outside chase distance (224px = 7 tiles)
+            float centerX = com.vampireraiders.game.GameWorld.getWorldWidth() / 2f;
+            float centerY = com.vampireraiders.game.GameWorld.getWorldHeight() / 2f;
+            float circleRadius = (float) ((com.vampireraiders.game.GameWorld.getGridSize() * 64) + 350); // safe zone approx + offset
         
         for (int i = 0; i < PERF_TEST_ENEMY_COUNT; i++) {
             // Calculate angle for this enemy (evenly distributed)
@@ -88,22 +88,37 @@ public class SpawnerSystem {
         int spawnCount = random.nextInt(2) + 1;
         for (int i = 0; i < spawnCount && gameState.getEnemyCount() < maxEnemies; i++) {
             if (spiderTemplate != null) {
-                Enemy enemy = new Enemy(
-                    getRandomSpawnX(),
-                    getRandomSpawnY(),
-                    spiderTemplate
-                );
+                float[] pos = getRandomSpawnPosition();
+                Enemy enemy = new Enemy(pos[0], pos[1], spiderTemplate);
                 gameState.addEnemy(enemy);
                 Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName());
             }
         }
     }
 
-    private float getRandomSpawnX() {
-        return random.nextInt(8192);
-    }
-
-    private float getRandomSpawnY() {
-        return random.nextInt(8192);
+    /**
+     * Get a random spawn position in the red hunting zone (outside moat).
+     * Avoids safe zone, moat, and bridges.
+     */
+    private float[] getRandomSpawnPosition() {
+        int maxX = com.vampireraiders.game.GameWorld.getWorldWidth();
+        int maxY = com.vampireraiders.game.GameWorld.getWorldHeight();
+        for (int attempts = 0; attempts < 100; attempts++) {
+            float x = random.nextInt(maxX);
+            float y = random.nextInt(maxY);
+            // Only spawn in hunting zone (red area outside moat)
+            if (com.vampireraiders.game.GameWorld.isInHuntingZone(x, y)) {
+                return new float[]{x, y};
+            }
+        }
+        // Fallback: spawn just outside one of the four bridges
+        float cx = maxX / 2f, cy = maxY / 2f;
+        float moatRadius = 1600f + 1280f + 200f; // safe + moat + offset
+        switch (random.nextInt(4)) {
+            case 0: return new float[]{cx, cy - moatRadius}; // North
+            case 1: return new float[]{cx + moatRadius, cy}; // East
+            case 2: return new float[]{cx, cy + moatRadius}; // South
+            default: return new float[]{cx - moatRadius, cy}; // West
+        }
     }
 }

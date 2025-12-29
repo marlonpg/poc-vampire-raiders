@@ -105,6 +105,7 @@ public class Player {
     public void setMaxHealth(int mh) { this.maxHealth = mh; }
     public void setLevel(int l) { this.level = l; }
     public void setXP(int x) { this.xp = x; }
+    public void setPosition(float x, float y) { this.x = x; this.y = y; }
         public void setDatabaseId(int id) { 
             this.databaseId = id;
             // Load equipped items cache when database ID is set

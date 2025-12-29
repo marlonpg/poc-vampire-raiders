@@ -6,6 +6,7 @@ import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.Enemy;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.Player;
+import com.vampireraiders.game.Tilemap;
 import com.vampireraiders.game.WorldItem;
 import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
@@ -43,6 +44,10 @@ public class CombatSystem {
                 if (distance < COLLISION_DISTANCE) {
                     // Enemy damages player with defense reduction (only if enemy can attack)
                     if (enemy.canAttack()) {
+                        // Skip damage if player is inside safe zone
+                        if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
+                            continue;
+                        }
                         int enemyDamage = enemy.getDamage();
                         int playerDefense = calculatePlayerDefense(player);
                         int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
@@ -59,6 +64,8 @@ public class CombatSystem {
                             Logger.info("Player " + player.getUsername() + " died");
                             // On death: drop all equipped + inventory items to the world
                             dropAllItemsForPlayer(state, player);
+                            // Respawn at safe zone center
+                            respawnPlayer(player);
                         }
                     }
                 }
@@ -76,6 +83,24 @@ public class CombatSystem {
             Logger.debug("Enemy " + enemy.getId() + " defeated");
             rewardKiller(state, enemy);
         }
+    }
+    
+    /**
+     * Respawn a player at the safe zone center with full health
+     */
+    public void respawnPlayer(Player player) {
+        // Teleport to safe zone center
+        float safeZoneCenterX = (float) (Tilemap.MAP_WIDTH * Tilemap.TILE_SIZE) / 2.0f;
+        float safeZoneCenterY = (float) (Tilemap.MAP_HEIGHT * Tilemap.TILE_SIZE) / 2.0f;
+        player.setPosition(safeZoneCenterX, safeZoneCenterY);
+        
+        // Reset health to full
+        player.setHealth(player.getMaxHealth());
+        
+        // Clear velocity
+        player.setInputDirection(0, 0);
+        
+        Logger.info("Player " + player.getUsername() + " respawned at safe zone center");
     }
 
     private void rewardKiller(GameState state, Enemy enemy) {
@@ -221,8 +246,9 @@ public class CombatSystem {
         int posInRing = index % 8;
         double angle = (Math.PI * 2.0) * (posInRing / 8.0) + (ring * 0.3); // slight rotation per ring
         float radius = 48f + ring * 24f; // start at 48px, expand by 24px per ring
-        float jitterX = (float) ((new Random().nextDouble() - 0.5) * 12.0); // small random jitter
-        float jitterY = (float) ((new Random().nextDouble() - 0.5) * 12.0);
+        Random rng = new Random();
+        float jitterX = (float) ((rng.nextDouble() - 0.5) * 12.0); // small random jitter
+        float jitterY = (float) ((rng.nextDouble() - 0.5) * 12.0);
         float dropX = x + (float) (Math.cos(angle) * radius) + jitterX;
         float dropY = y + (float) (Math.sin(angle) * radius) + jitterY;
         return new float[]{dropX, dropY};

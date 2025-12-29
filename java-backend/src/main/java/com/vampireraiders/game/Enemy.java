@@ -49,8 +49,14 @@ public class Enemy {
         // Only chase player if within 7 tiles (224 pixels)
         float chaseDistance = 7 * 32;
         if (distance > 0 && distance <= chaseDistance) {
-            x += (dx / distance) * speed * deltaTime;
-            y += (dy / distance) * speed * deltaTime;
+            float newX = x + (dx / distance) * speed * deltaTime;
+            float newY = y + (dy / distance) * speed * deltaTime;
+            
+            // Only update position if walkable (not in moat)
+            if (GameWorld.isWalkable(newX, newY)) {
+                x = newX;
+                y = newY;
+            }
         }
     }
 
