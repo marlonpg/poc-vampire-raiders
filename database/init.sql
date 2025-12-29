@@ -29,11 +29,43 @@ CREATE TABLE IF NOT EXISTS item_templates (
   type VARCHAR(50) NOT NULL, -- weapon, armor, consumable, loot
   damage INT DEFAULT 0,
   defense INT DEFAULT 0,
+  attack_speed FLOAT DEFAULT 1.0,
+  attack_range FLOAT DEFAULT 200.0,
   rarity VARCHAR(20) DEFAULT 'common', -- common, uncommon, rare, epic, legendary
   stackable BOOLEAN DEFAULT FALSE,
   description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_type (type)
+);
+
+-- Enemy Templates (enemy definitions)
+CREATE TABLE IF NOT EXISTS enemy_templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  level INT NOT NULL DEFAULT 1,
+  hp INT NOT NULL,
+  defense INT NOT NULL DEFAULT 0,
+  attack INT NOT NULL DEFAULT 0,
+  attack_rate FLOAT NOT NULL DEFAULT 1.0,
+  move_speed FLOAT NOT NULL DEFAULT 0,
+  attack_range FLOAT NOT NULL DEFAULT 1.0,
+  experience INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_enemy_templates_name (name)
+);
+
+-- Enemy Item Drops (junction table for many-to-many with drop rates)
+CREATE TABLE IF NOT EXISTS enemy_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  enemy_template_id INT NOT NULL,
+  item_template_id INT NOT NULL,
+  drop_rate DECIMAL(5,2) NOT NULL, -- Percentage 0.00 to 100.00
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (enemy_template_id) REFERENCES enemy_templates(id) ON DELETE CASCADE,
+  FOREIGN KEY (item_template_id) REFERENCES item_templates(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_enemy_item (enemy_template_id, item_template_id),
+  INDEX idx_enemy (enemy_template_id),
+  INDEX idx_item (item_template_id)
 );
 
 -- World Items (items dropped in the game world)
@@ -107,16 +139,34 @@ CREATE TABLE IF NOT EXISTS item_mods (
 );
 
 -- Sample Item Templates
-INSERT INTO item_templates (name, type, damage, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 'common', 'A basic iron dagger', FALSE),
-('Steel Sword', 'weapon', 15, 'common', 'A well-crafted steel sword', FALSE),
-('Katana', 'weapon', 20, 'common', 'A katana from the east', FALSE),
-('Iron Armor', 'armor', 0, 'common', 'Basic iron armor', FALSE),
-('Plate Armor', 'armor', 0, 'common', 'Sturdy plate armor', FALSE),
-('Health Potion', 'consumable', 0, 'common', 'Restores 50 health', TRUE),
-('Jewel of Strength', 'jewel', 0, 'rare', 'Increase item in 1 level', FALSE),
-('Jewel of Modification', 'jewel', 0, 'rare', 'Add or Modify mods from items', FALSE),
-('Gold Coin', 'loot', 0, 'common', 'Currency', FALSE);
+INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, rarity, description, stackable) VALUES
+('Iron Dagger', 'weapon', 10, 0, 2.0, 150.0, 'common', 'A basic iron dagger', FALSE),
+('Small Axe', 'weapon', 15, 0, 1.0, 200.0, 'common', 'A small axe', FALSE),
+('Small Bow', 'weapon', 8, 0, 1.5, 400.0, 'common', 'A small bow', FALSE),
+('Steel Sword', 'weapon', 20, 0, 1.0, 250.0, 'common', 'A well-crafted steel sword', FALSE),
+('Katana', 'weapon', 15, 0, 1.5, 250.0, 'common', 'A katana from the east', FALSE),
+('Leather Armor', 'armor', 0, 5, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
+('Iron Armor', 'armor', 0, 15, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
+('Plate Armor', 'armor', 0, 30, 1.0, 200.0, 'common', 'Sturdy plate armor', FALSE),
+('Health Potion', 'consumable', 0, 0, 1.0, 200.0, 'common', 'Restores 50 health', TRUE),
+('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Increase item in 1 level', FALSE),
+('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Add or Modify mods from items', FALSE),
+('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', FALSE);
+
+-- Default enemy templates
+INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
+VALUES ('Spider', 1, 40, 1, 10, 1.0, 120.0, 1.0, 20)
+ON DUPLICATE KEY UPDATE name = name;
+
+-- Sample enemy item drops with rates
+INSERT INTO enemy_items (enemy_template_id, item_template_id, drop_rate) VALUES
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Gold Coin'), 60.00),
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Small Axe'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Small Bow'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Iron Dagger'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Leather Armor'), 9.00),
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 1.00)
+ON DUPLICATE KEY UPDATE drop_rate = VALUES(drop_rate);
 
 -- Sample Mod Templates
 INSERT INTO mod_templates (mod_type, mod_value, mod_name) VALUES
