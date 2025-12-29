@@ -214,9 +214,10 @@ public class NetworkManager {
             Logger.info("New player created: " + username + " (dbId=" + databaseId + ")");
         }
 
-        // Update position for spawn
+        // Update position for spawn and mark authenticated
         player.setInputDirection(0, 0);
         client.setPlayer(player);
+        client.setAuthenticated(true);
         
         // Add player to game world
         gameWorld.getState().addPlayer(client.getPeerId(), player);
@@ -227,6 +228,10 @@ public class NetworkManager {
         JsonObject ack = new JsonObject();
         ack.addProperty("type", "player_joined");
         ack.addProperty("peer_id", client.getPeerId());
+        ack.addProperty("username", username);
+        ack.addProperty("db_id", databaseId);
+        ack.addProperty("level", player.getLevel());
+        ack.addProperty("xp", player.getXP());
         sendToClient(client, ack.toString());
     }
 
