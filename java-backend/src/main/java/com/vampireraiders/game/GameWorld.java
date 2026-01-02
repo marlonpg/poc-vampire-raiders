@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GameWorld {
-    private static final Tilemap tilemap = new Tilemap();
+    private static Tilemap tilemap;
     private static final int GRID_SIZE = 64;
-    private static final int WORLD_WIDTH = Tilemap.MAP_WIDTH * GRID_SIZE;
-    private static final int WORLD_HEIGHT = Tilemap.MAP_HEIGHT * GRID_SIZE;
+    private static int WORLD_WIDTH;
+    private static int WORLD_HEIGHT;
 
     private final GameState state;
     private final CombatSystem combatSystem;
@@ -19,6 +19,18 @@ public class GameWorld {
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
 
     public GameWorld() {
+        this(null);
+    }
+    
+    public GameWorld(String mapFile) {
+        // Load map
+        if (mapFile == null || mapFile.isEmpty()) {
+            mapFile = "small-map.txt"; // Default map
+        }
+        tilemap = MapLoader.loadMap(mapFile);
+        WORLD_WIDTH = tilemap.getMapWidth() * GRID_SIZE;
+        WORLD_HEIGHT = tilemap.getMapHeight() * GRID_SIZE;
+        
         this.state = new GameState();
         this.combatSystem = new CombatSystem();
         this.stateSync = null;
@@ -221,10 +233,17 @@ public class GameWorld {
     }
     
     /**
-     * Check if position is walkable (tile-based)
+     * Check if position is walkable for players (tile-based)
      */
     public static boolean isWalkable(float x, float y) {
         return tilemap.isWalkable(x, y);
+    }
+    
+    /**
+     * Check if position is walkable for enemies (tile-based)
+     */
+    public static boolean isEnemyWalkable(float x, float y) {
+        return tilemap.isEnemyWalkable(x, y);
     }
     
     /**

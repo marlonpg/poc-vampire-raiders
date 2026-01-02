@@ -52,8 +52,8 @@ public class Enemy {
             float newX = x + (dx / distance) * speed * deltaTime;
             float newY = y + (dy / distance) * speed * deltaTime;
             
-            // Only update position if walkable (not in moat)
-            if (GameWorld.isWalkable(newX, newY)) {
+            // Check if walkable for enemies (enemies can't enter safe zone)
+            if (GameWorld.isEnemyWalkable(newX, newY)) {
                 x = newX;
                 y = newY;
             }

@@ -11,9 +11,9 @@ public class PlayerRepository {
      * Save or update a player in the database
      */
     public static void savePlayer(Player player) {
-        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp, x, y) " +
-                     "VALUES (?, 'pass', ?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE level=?, experience=?, health=?, max_health=?, xp=?, x=?, y=?";
+        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp, x, y, move_speed) " +
+                     "VALUES (?, 'pass', ?, ?, ?, ?, ?, ?, ?, ?) " +
+                     "ON DUPLICATE KEY UPDATE level=?, experience=?, health=?, max_health=?, xp=?, x=?, y=?, move_speed=?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -26,15 +26,17 @@ public class PlayerRepository {
             stmt.setInt(6, player.getXP());
             stmt.setFloat(7, player.getX());
             stmt.setFloat(8, player.getY());
+            stmt.setFloat(9, player.getMoveSpeed());
 
             // ON DUPLICATE KEY UPDATE values
-            stmt.setInt(9, player.getLevel());
-            stmt.setLong(10, player.getXP());
-            stmt.setInt(11, player.getHealth());
-            stmt.setInt(12, player.getMaxHealth());
-            stmt.setInt(13, player.getXP());
-            stmt.setFloat(14, player.getX());
-            stmt.setFloat(15, player.getY());
+            stmt.setInt(10, player.getLevel());
+            stmt.setLong(11, player.getXP());
+            stmt.setInt(12, player.getHealth());
+            stmt.setInt(13, player.getMaxHealth());
+            stmt.setInt(14, player.getXP());
+            stmt.setFloat(15, player.getX());
+            stmt.setFloat(16, player.getY());
+            stmt.setFloat(17, player.getMoveSpeed());
 
             stmt.executeUpdate();
             Logger.debug("Player " + player.getUsername() + " saved to database");
@@ -48,7 +50,7 @@ public class PlayerRepository {
      * Load a player from the database by username
      */
     public static Player loadPlayerByUsername(String username) {
-        String sql = "SELECT id, username, level, experience, health, max_health, xp, x, y FROM players WHERE username = ?";
+        String sql = "SELECT id, username, level, experience, health, max_health, xp, x, y, move_speed FROM players WHERE username = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -66,6 +68,7 @@ public class PlayerRepository {
                 int xp = rs.getInt("xp");
                 float x = rs.getFloat("x");
                 float y = rs.getFloat("y");
+                float moveSpeed = rs.getFloat("move_speed");
 
                 Player player = new Player(databaseId, dbUsername, x, y);
                 player.setDatabaseId(databaseId);  // Also set the database ID explicitly
@@ -73,6 +76,7 @@ public class PlayerRepository {
                 player.setXP(xp);
                 player.setHealth(health);
                 player.setMaxHealth(maxHealth);
+                player.setMoveSpeed(moveSpeed);
 
                 Logger.info("Loaded player " + username + " from database with ID: " + databaseId);
                 return player;

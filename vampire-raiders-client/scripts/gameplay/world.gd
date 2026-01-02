@@ -270,6 +270,12 @@ func _update_enemies(enemies_data: Array):
 				var enemy = enemy_scene.instantiate()
 				enemy.name = "Enemy_%d" % enemy_id
 				enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
+				# Set enemy template info
+				enemy.template_id = enemy_data.get("template_id", 0)
+				enemy.template_name = template_name
+				enemy.level = enemy_data.get("level", 1)
+				enemy.max_health = enemy_data.get("max_health", 30)
+				enemy.health = enemy_data.get("health", 30)
 				add_child(enemy)
 				enemies[enemy_id] = enemy
 				
@@ -277,10 +283,12 @@ func _update_enemies(enemies_data: Array):
 		
 		server_ids[enemy_id] = true
 		
-		# Update enemy position (check if node is still valid)
+		# Update enemy position and health (check if node is still valid)
 		if enemy_id in enemies and is_instance_valid(enemies[enemy_id]):
 			var enemy = enemies[enemy_id]
 			enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
+			enemy.health = enemy_data.get("health", enemy.max_health)
+			enemy.max_health = enemy_data.get("max_health", 30)
 	
 	# Remove enemies that no longer exist on server
 	var to_remove = []

@@ -64,8 +64,8 @@ public class CombatSystem {
                             Logger.info("Player " + player.getUsername() + " died");
                             // On death: drop all equipped + inventory items to the world
                             dropAllItemsForPlayer(state, player);
-                            // Respawn at safe zone center
-                            respawnPlayer(player);
+                            // Respawn at safe zone center (get tilemap from GameWorld)
+                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
                         }
                     }
                 }
@@ -88,11 +88,10 @@ public class CombatSystem {
     /**
      * Respawn a player at the safe zone center with full health
      */
-    public void respawnPlayer(Player player) {
+    public void respawnPlayer(Player player, Tilemap tilemap) {
         // Teleport to safe zone center
-        float safeZoneCenterX = (float) (Tilemap.MAP_WIDTH * Tilemap.TILE_SIZE) / 2.0f;
-        float safeZoneCenterY = (float) (Tilemap.MAP_HEIGHT * Tilemap.TILE_SIZE) / 2.0f;
-        player.setPosition(safeZoneCenterX, safeZoneCenterY);
+        float[] center = tilemap.getSafeZoneCenter();
+        player.setPosition(center[0], center[1]);
         
         // Reset health to full
         player.setHealth(player.getMaxHealth());

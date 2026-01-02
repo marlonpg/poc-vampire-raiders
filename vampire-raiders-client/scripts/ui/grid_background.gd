@@ -2,88 +2,56 @@ extends Node2D
 
 const GRID_SIZE = 64
 const LINE_COLOR = Color(0.3, 0.3, 0.4, 1)
-const MAP_GRIDS = 250
+const MAP_GRIDS = 25  # Changed to match small-map.txt 25x25 grid
 
-# Tile type constants (must match Java Tilemap)
-const TILE_SAFE_ZONE = 1
-const TILE_MOAT = 2
-const TILE_BRIDGE = 3
-const TILE_HUNTING = 4
+# Tile type codes (must match Java TileType codes)
+const TILE_BLK = "BLK"
+const TILE_SAF = "SAF"
+const TILE_PVE = "PVE"
+const TILE_EL1 = "EL1"
+const TILE_EL2 = "EL2"
+const TILE_EL3 = "EL3"
+const TILE_EL4 = "EL4"
+const TILE_PV1 = "PV1"  # Spider
+const TILE_PV2 = "PV2"  # Worm
+const TILE_PV3 = "PV3"  # Wild Dog
+const TILE_PV4 = "PV4"  # Goblin
 
 # Colors for each tile type
 const TILE_COLORS = {
-	TILE_SAFE_ZONE: Color(0.6, 0.9, 0.3, 0.3),  # Green
-	TILE_MOAT: Color(0.1, 0.4, 0.7, 0.4),       # Blue
-	TILE_BRIDGE: Color(0.6, 0.9, 0.3, 0.4),     # Green
-	TILE_HUNTING: Color(0.5, 0.1, 0.1, 0.2)     # Red
+	TILE_BLK: Color(0.2, 0.2, 0.2, 0.8),      # Gray
+	TILE_SAF: Color(0.0, 0.8, 0.0, 0.3),      # Green
+	TILE_PVE: Color(0.8, 0.1, 0.1, 0.3),      # Red
+	TILE_EL1: Color(0.8, 0.1, 0.1, 0.3),      # Red (elite)
+	TILE_EL2: Color(0.8, 0.1, 0.1, 0.3),      # Red (elite)
+	TILE_EL3: Color(0.8, 0.1, 0.1, 0.3),      # Red (elite)
+	TILE_EL4: Color(0.8, 0.1, 0.1, 0.3),      # Red (elite)
+	TILE_PV1: Color(0.8, 0.1, 0.1, 0.3),      # Red (spider spawn)
+	TILE_PV2: Color(0.8, 0.1, 0.1, 0.3),      # Red (worm spawn)
+	TILE_PV3: Color(0.8, 0.1, 0.1, 0.3),      # Red (wild dog spawn)
+	TILE_PV4: Color(0.8, 0.1, 0.1, 0.3),      # Red (goblin spawn)
 }
 
 # Tilemap will be populated when connection is ready
 var tilemap: Array = []
+var map_width: int = MAP_GRIDS
+var map_height: int = MAP_GRIDS
 var tilemap_loaded: bool = false
 
 func _ready() -> void:
-	# Generate tilemap matching server logic
-	for x in range(MAP_GRIDS):
-		var column = []
-		for y in range(MAP_GRIDS):
-			column.append(TILE_HUNTING)
-		tilemap.append(column)
+	# Load map from file (same map as server uses)
+	var map_data = MapLoader.load_map("small-map.txt")
+	if map_data.is_empty():
+		push_error("Failed to load map file")
+		return
 	
-	# Generate zones
-	var center_x = MAP_GRIDS / 2
-	var center_y = MAP_GRIDS / 2
+	# Convert tiles array to the format we need
+	var tiles_list = map_data["tiles"]
+	map_width = map_data["width"]
+	map_height = map_data["height"]
 	
-	# Safe zone: 25x25 grids at center
-	var safe_zone_size = 25
-	var safe_half = safe_zone_size / 2
-	for x in range(center_x - safe_half, center_x + safe_half + 1):
-		for y in range(center_y - safe_half, center_y + safe_half + 1):
-			if x >= 0 and x < MAP_GRIDS and y >= 0 and y < MAP_GRIDS:
-				tilemap[x][y] = TILE_SAFE_ZONE
-	
-	# Moat: 10 grids wide ring
-	var moat_width = 10
-	var moat_inner = safe_half
-	var moat_outer = safe_half + moat_width
-	
-	for x in range(MAP_GRIDS):
-		for y in range(MAP_GRIDS):
-			if tilemap[x][y] == TILE_HUNTING:
-				var dx = abs(x - center_x)
-				var dy = abs(y - center_y)
-				var in_moat = (dx > moat_inner or dy > moat_inner) and (dx < moat_outer and dy < moat_outer)
-				if in_moat:
-					tilemap[x][y] = TILE_MOAT
-	
-	# Bridges: 6 tiles wide
-	var bridge_width = 6
-	var bridge_half = bridge_width / 2
-	
-	# North bridge
-	for x in range(center_x - bridge_half, center_x + bridge_half):
-		for y in range(center_y - moat_outer, center_y - moat_inner):
-			if x >= 0 and x < MAP_GRIDS and y >= 0 and y < MAP_GRIDS:
-				tilemap[x][y] = TILE_BRIDGE
-	
-	# South bridge
-	for x in range(center_x - bridge_half, center_x + bridge_half):
-		for y in range(center_y + moat_inner, center_y + moat_outer):
-			if x >= 0 and x < MAP_GRIDS and y >= 0 and y < MAP_GRIDS:
-				tilemap[x][y] = TILE_BRIDGE
-	
-	# West bridge
-	for x in range(center_x - moat_outer, center_x - moat_inner):
-		for y in range(center_y - bridge_half, center_y + bridge_half):
-			if x >= 0 and x < MAP_GRIDS and y >= 0 and y < MAP_GRIDS:
-				tilemap[x][y] = TILE_BRIDGE
-	
-	# East bridge
-	for x in range(center_x + moat_inner, center_x + moat_outer):
-		for y in range(center_y - bridge_half, center_y + bridge_half):
-			if x >= 0 and x < MAP_GRIDS and y >= 0 and y < MAP_GRIDS:
-				tilemap[x][y] = TILE_BRIDGE
-	
+	# Store tiles as 2D array for access
+	tilemap = tiles_list
 	tilemap_loaded = true
 
 func _draw() -> void:
@@ -93,25 +61,33 @@ func _draw() -> void:
 	if not camera:
 		return
 	
+	# Draw black background for entire viewport
+	draw_rect(Rect2(camera.global_position - screen_size / (2 * camera.zoom), screen_size / camera.zoom), Color.BLACK, true)
+	
 	var cam_pos = camera.global_position
 	var zoom = camera.zoom.x
+	
+	# Calculate map world bounds
+	var map_world_width = map_width * GRID_SIZE
+	var map_world_height = map_height * GRID_SIZE
 	
 	# Calculate visible tile range
 	var start_tile_x = max(0, int((cam_pos.x - screen_size.x / zoom) / GRID_SIZE))
 	var start_tile_y = max(0, int((cam_pos.y - screen_size.y / zoom) / GRID_SIZE))
-	var end_tile_x = min(MAP_GRIDS - 1, int((cam_pos.x + screen_size.x / zoom) / GRID_SIZE))
-	var end_tile_y = min(MAP_GRIDS - 1, int((cam_pos.y + screen_size.y / zoom) / GRID_SIZE))
+	var end_tile_x = min(map_width - 1, int((cam_pos.x + screen_size.x / zoom) / GRID_SIZE))
+	var end_tile_y = min(map_height - 1, int((cam_pos.y + screen_size.y / zoom) / GRID_SIZE))
 	
 	# Draw only visible tiles
-	for x in range(start_tile_x, end_tile_x + 1):
-		for y in range(start_tile_y, end_tile_y + 1):
-			var tile_type = tilemap[x][y] if x < tilemap.size() and y < tilemap[x].size() else TILE_HUNTING
-			var color = TILE_COLORS.get(tile_type, Color.WHITE)
-			var tile_pos = Vector2(x * GRID_SIZE, y * GRID_SIZE)
-			var tile_rect = Rect2(tile_pos, Vector2(GRID_SIZE, GRID_SIZE))
-			draw_rect(tile_rect, color, true)
+	for y in range(start_tile_y, end_tile_y + 1):
+		for x in range(start_tile_x, end_tile_x + 1):
+			if y < tilemap.size() and x < tilemap[y].size():
+				var tile_code = tilemap[y][x]
+				var color = TILE_COLORS.get(tile_code, Color(0.5, 0.5, 0.5, 0.3))
+				var tile_pos = Vector2(x * GRID_SIZE, y * GRID_SIZE)
+				var tile_rect = Rect2(tile_pos, Vector2(GRID_SIZE, GRID_SIZE))
+				draw_rect(tile_rect, color, true)
 	
-	# Draw grid lines
+	# Draw grid lines (only on map area)
 	var start_x = int((cam_pos.x - screen_size.x / zoom) / GRID_SIZE) * GRID_SIZE
 	var start_y = int((cam_pos.y - screen_size.y / zoom) / GRID_SIZE) * GRID_SIZE
 	var end_x = int((cam_pos.x + screen_size.x / zoom) / GRID_SIZE) * GRID_SIZE
@@ -127,7 +103,9 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 # Called from game state sync to update tilemap from server
-func set_tilemap_data(data: Array) -> void:
+func set_tilemap_data(data: Array, width: int, height: int) -> void:
 	tilemap = data
+	map_width = width
+	map_height = height
 	tilemap_loaded = true
 	queue_redraw()

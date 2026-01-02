@@ -42,11 +42,13 @@ public class StateSync {
         for (Enemy enemy : state.getAllEnemies()) {
             JsonObject enemyObj = new JsonObject();
             enemyObj.addProperty("id", enemy.getId());
+            enemyObj.addProperty("template_id", enemy.getTemplateId());
             enemyObj.addProperty("x", enemy.getX());
             enemyObj.addProperty("y", enemy.getY());
             enemyObj.addProperty("health", enemy.getHealth());
             enemyObj.addProperty("max_health", enemy.getMaxHealth());
             enemyObj.addProperty("type", enemy.getTemplateName());
+            enemyObj.addProperty("level", enemy.getLevel());
             enemyObj.addProperty("alive", enemy.isAlive());
             enemiesArray.add(enemyObj);
         }

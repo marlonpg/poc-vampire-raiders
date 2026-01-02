@@ -5,8 +5,12 @@ import com.vampireraiders.database.EnemyTemplateRepository;
 import com.vampireraiders.game.Enemy;
 import com.vampireraiders.game.EnemyTemplate;
 import com.vampireraiders.game.GameState;
+import com.vampireraiders.game.GameWorld;
+import com.vampireraiders.game.TileType;
+import com.vampireraiders.game.Tilemap;
 import com.vampireraiders.util.Logger;
 
+import java.util.List;
 import java.util.Random;
 
 public class SpawnerSystem {
@@ -44,27 +48,66 @@ public class SpawnerSystem {
     }
     
     private void spawnInitialEnemies() {
-        Logger.debug("Spawning " + PERF_TEST_ENEMY_COUNT + " enemies in circle formation...");
+        Logger.debug("Spawning " + PERF_TEST_ENEMY_COUNT + " enemies in map spawn zones...");
         
-        // Spawn enemies in a circle around player spawn point (640, 360)
-            float centerX = com.vampireraiders.game.GameWorld.getWorldWidth() / 2f;
-            float centerY = com.vampireraiders.game.GameWorld.getWorldHeight() / 2f;
-            float circleRadius = (float) ((com.vampireraiders.game.GameWorld.getGridSize() * 64) + 350); // safe zone approx + offset
+        Tilemap tilemap = GameWorld.getTilemap();
+        if (tilemap == null) {
+            Logger.error("Tilemap not loaded, cannot spawn enemies!");
+            return;
+        }
         
-        for (int i = 0; i < PERF_TEST_ENEMY_COUNT; i++) {
-            // Calculate angle for this enemy (evenly distributed)
-            double angle = (2 * Math.PI * i) / PERF_TEST_ENEMY_COUNT;
-            
-            // Calculate position on circle
-            float x = centerX + (float)(Math.cos(angle) * circleRadius);
-            float y = centerY + (float)(Math.sin(angle) * circleRadius);
-            
-            if (spiderTemplate != null) {
-                Enemy enemy = new Enemy(x, y, spiderTemplate);
+        // Spawn across different level zones (PV1-4)
+        EnemyTemplate spiderTemplate = EnemyTemplateRepository.getByName("Spider");
+        EnemyTemplate wormTemplate = EnemyTemplateRepository.getByName("Worm");
+        EnemyTemplate wildDogTemplate = EnemyTemplateRepository.getByName("Wild Dog");
+        EnemyTemplate goblinTemplate = EnemyTemplateRepository.getByName("Goblin");
+        
+        int spidersToSpawn = PERF_TEST_ENEMY_COUNT / 4;
+        int wormsToSpawn = PERF_TEST_ENEMY_COUNT / 4;
+        int dogsToSpawn = PERF_TEST_ENEMY_COUNT / 4;
+        int goblinsToSpawn = PERF_TEST_ENEMY_COUNT - spidersToSpawn - wormsToSpawn - dogsToSpawn;
+        
+        // Spawn Spiders in PV1 zones
+        if (spiderTemplate != null) {
+            List<Tilemap.TilePosition> pv1Zones = tilemap.getSpawnZones(1);
+            for (int i = 0; i < spidersToSpawn && !pv1Zones.isEmpty(); i++) {
+                Tilemap.TilePosition pos = pv1Zones.get(random.nextInt(pv1Zones.size()));
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, spiderTemplate);
                 gameState.addEnemy(enemy);
             }
         }
-        Logger.debug("Performance test enemies spawned in circle: " + gameState.getEnemyCount());
+        
+        // Spawn Worms in PV2 zones
+        if (wormTemplate != null) {
+            List<Tilemap.TilePosition> pv2Zones = tilemap.getSpawnZones(2);
+            for (int i = 0; i < wormsToSpawn && !pv2Zones.isEmpty(); i++) {
+                Tilemap.TilePosition pos = pv2Zones.get(random.nextInt(pv2Zones.size()));
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wormTemplate);
+                gameState.addEnemy(enemy);
+            }
+        }
+        
+        // Spawn Wild Dogs in PV3 zones
+        if (wildDogTemplate != null) {
+            List<Tilemap.TilePosition> pv3Zones = tilemap.getSpawnZones(3);
+            for (int i = 0; i < dogsToSpawn && !pv3Zones.isEmpty(); i++) {
+                Tilemap.TilePosition pos = pv3Zones.get(random.nextInt(pv3Zones.size()));
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wildDogTemplate);
+                gameState.addEnemy(enemy);
+            }
+        }
+        
+        // Spawn Goblins in PV4 zones
+        if (goblinTemplate != null) {
+            List<Tilemap.TilePosition> pv4Zones = tilemap.getSpawnZones(4);
+            for (int i = 0; i < goblinsToSpawn && !pv4Zones.isEmpty(); i++) {
+                Tilemap.TilePosition pos = pv4Zones.get(random.nextInt(pv4Zones.size()));
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, goblinTemplate);
+                gameState.addEnemy(enemy);
+            }
+        }
+        
+        Logger.debug("Performance test enemies spawned in map zones: " + gameState.getEnemyCount());
     }
 
     public void update() {
@@ -84,41 +127,54 @@ public class SpawnerSystem {
             return;
         }
 
-        // Spawn 1-2 enemies per spawn cycle
+        Tilemap tilemap = GameWorld.getTilemap();
+        if (tilemap == null) {
+            return;
+        }
+
+        // Spawn 1-2 enemies per spawn cycle, distributed across levels
         int spawnCount = random.nextInt(2) + 1;
         for (int i = 0; i < spawnCount && gameState.getEnemyCount() < maxEnemies; i++) {
-            if (spiderTemplate != null) {
-                float[] pos = getRandomSpawnPosition();
-                Enemy enemy = new Enemy(pos[0], pos[1], spiderTemplate);
+            // Choose random spawn level (1-4)
+            int level = random.nextInt(4) + 1;
+            EnemyTemplate template = getTemplateForLevel(level);
+            
+            if (template != null) {
+                float[] pos = getRandomSpawnPosition(tilemap, level);
+                Enemy enemy = new Enemy(pos[0], pos[1], template);
                 gameState.addEnemy(enemy);
-                Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName());
+                Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName() + " Level: " + level);
             }
+        }
+    }
+    
+    private EnemyTemplate getTemplateForLevel(int level) {
+        switch (level) {
+            case 1: return EnemyTemplateRepository.getByName("Spider");
+            case 2: return EnemyTemplateRepository.getByName("Worm");
+            case 3: return EnemyTemplateRepository.getByName("Wild Dog");
+            case 4: return EnemyTemplateRepository.getByName("Goblin");
+            default: return EnemyTemplateRepository.getByName("Spider");
         }
     }
 
     /**
-     * Get a random spawn position in the red hunting zone (outside moat).
-     * Avoids safe zone, moat, and bridges.
+     * Get a random spawn position in the specified level's spawn zone.
      */
-    private float[] getRandomSpawnPosition() {
-        int maxX = com.vampireraiders.game.GameWorld.getWorldWidth();
-        int maxY = com.vampireraiders.game.GameWorld.getWorldHeight();
-        for (int attempts = 0; attempts < 100; attempts++) {
-            float x = random.nextInt(maxX);
-            float y = random.nextInt(maxY);
-            // Only spawn in hunting zone (red area outside moat)
-            if (com.vampireraiders.game.GameWorld.isInHuntingZone(x, y)) {
-                return new float[]{x, y};
-            }
+    private float[] getRandomSpawnPosition(Tilemap tilemap, int level) {
+        List<Tilemap.TilePosition> spawnZones = tilemap.getSpawnZones(level);
+        
+        if (spawnZones.isEmpty()) {
+            // Fallback to any PVE zone
+            spawnZones = tilemap.getTilesOfType(TileType.PVE);
         }
-        // Fallback: spawn just outside one of the four bridges
-        float cx = maxX / 2f, cy = maxY / 2f;
-        float moatRadius = 1600f + 1280f + 200f; // safe + moat + offset
-        switch (random.nextInt(4)) {
-            case 0: return new float[]{cx, cy - moatRadius}; // North
-            case 1: return new float[]{cx + moatRadius, cy}; // East
-            case 2: return new float[]{cx, cy + moatRadius}; // South
-            default: return new float[]{cx - moatRadius, cy}; // West
+        
+        if (spawnZones.isEmpty()) {
+            // Last resort: spawn at world center
+            return new float[]{tilemap.getMapWidth() * 32f, tilemap.getMapHeight() * 32f};
         }
+        
+        Tilemap.TilePosition pos = spawnZones.get(random.nextInt(spawnZones.size()));
+        return new float[]{pos.worldX, pos.worldY};
     }
 }

@@ -166,9 +166,11 @@ public class NetworkManager {
         String username = message.get("username").getAsString();
         String password = message.has("password") ? message.get("password").getAsString() : "pass";
 
-        // Calculate safe zone center for spawning
-        float safeZoneCenterX = (Tilemap.MAP_WIDTH * Tilemap.TILE_SIZE) / 2.0f;
-        float safeZoneCenterY = (Tilemap.MAP_HEIGHT * Tilemap.TILE_SIZE) / 2.0f;
+        // Get safe zone center from loaded map
+        Tilemap tilemap = com.vampireraiders.game.GameWorld.getTilemap();
+        float[] safeZoneCenter = tilemap.getSafeZoneCenter();
+        float safeZoneCenterX = safeZoneCenter[0];
+        float safeZoneCenterY = safeZoneCenter[1];
         
         // Determine spawn position based on player state
         float spawnX = safeZoneCenterX;
