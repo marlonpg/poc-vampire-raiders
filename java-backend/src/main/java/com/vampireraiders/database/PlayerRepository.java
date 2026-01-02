@@ -11,9 +11,9 @@ public class PlayerRepository {
      * Save or update a player in the database
      */
     public static void savePlayer(Player player) {
-        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp) " +
-                     "VALUES (?, 'pass', ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE level=?, experience=?, health=?, max_health=?, xp=?";
+        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp, x, y) " +
+                     "VALUES (?, 'pass', ?, ?, ?, ?, ?, ?, ?) " +
+                     "ON DUPLICATE KEY UPDATE level=?, experience=?, health=?, max_health=?, xp=?, x=?, y=?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -24,13 +24,17 @@ public class PlayerRepository {
             stmt.setInt(4, player.getHealth());
             stmt.setInt(5, player.getMaxHealth());
             stmt.setInt(6, player.getXP());
+            stmt.setFloat(7, player.getX());
+            stmt.setFloat(8, player.getY());
 
             // ON DUPLICATE KEY UPDATE values
-            stmt.setInt(7, player.getLevel());
-            stmt.setLong(8, player.getXP());
-            stmt.setInt(9, player.getHealth());
-            stmt.setInt(10, player.getMaxHealth());
-            stmt.setInt(11, player.getXP());
+            stmt.setInt(9, player.getLevel());
+            stmt.setLong(10, player.getXP());
+            stmt.setInt(11, player.getHealth());
+            stmt.setInt(12, player.getMaxHealth());
+            stmt.setInt(13, player.getXP());
+            stmt.setFloat(14, player.getX());
+            stmt.setFloat(15, player.getY());
 
             stmt.executeUpdate();
             Logger.debug("Player " + player.getUsername() + " saved to database");
@@ -44,7 +48,7 @@ public class PlayerRepository {
      * Load a player from the database by username
      */
     public static Player loadPlayerByUsername(String username) {
-        String sql = "SELECT id, username, level, experience, health, max_health, xp FROM players WHERE username = ?";
+        String sql = "SELECT id, username, level, experience, health, max_health, xp, x, y FROM players WHERE username = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -60,8 +64,10 @@ public class PlayerRepository {
                 int health = rs.getInt("health");
                 int maxHealth = rs.getInt("max_health");
                 int xp = rs.getInt("xp");
+                float x = rs.getFloat("x");
+                float y = rs.getFloat("y");
 
-                Player player = new Player(databaseId, dbUsername, 640, 360);
+                Player player = new Player(databaseId, dbUsername, x, y);
                 player.setDatabaseId(databaseId);  // Also set the database ID explicitly
                 player.setLevel(level);
                 player.setXP(xp);
@@ -103,8 +109,8 @@ public class PlayerRepository {
      * Create a new player in the database
      */
     public static Player createNewPlayer(String username, String password) {
-        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp) " +
-                     "VALUES (?, ?, 1, 0, 100, 100, 0)";
+        String sql = "INSERT INTO players (username, password, level, experience, health, max_health, xp, x, y) " +
+                     "VALUES (?, ?, 1, 0, 100, 100, 0, 8000.0, 8000.0)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -116,7 +122,7 @@ public class PlayerRepository {
             ResultSet generatedKeys = stmt.getGeneratedKeys();
             if (generatedKeys.next()) {
                 int playerId = generatedKeys.getInt(1);
-                Player player = new Player(playerId, username, 640, 360);
+                Player player = new Player(playerId, username, 8000, 8000);
                 player.setDatabaseId(playerId);  // Set database ID
                 Logger.info("Created new player " + username + " in database with ID: " + playerId);
                 return player;

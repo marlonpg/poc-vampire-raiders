@@ -10,6 +10,7 @@ import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.GameState;
 import com.vampireraiders.game.GameWorld;
 import com.vampireraiders.game.Player;
+import com.vampireraiders.game.Tilemap;
 import com.vampireraiders.game.WorldItem;
 import com.vampireraiders.util.Logger;
 
@@ -164,11 +165,18 @@ public class NetworkManager {
     private void handlePlayerJoin(GameClient client, JsonObject message) {
         String username = message.get("username").getAsString();
         String password = message.has("password") ? message.get("password").getAsString() : "pass";
-        float x = message.get("x").getAsFloat();
-        float y = message.get("y").getAsFloat();
 
+        // Calculate safe zone center for spawning
+        float safeZoneCenterX = (Tilemap.MAP_WIDTH * Tilemap.TILE_SIZE) / 2.0f;
+        float safeZoneCenterY = (Tilemap.MAP_HEIGHT * Tilemap.TILE_SIZE) / 2.0f;
+        
+        // Determine spawn position based on player state
+        float spawnX = safeZoneCenterX;
+        float spawnY = safeZoneCenterY;
+        boolean isNewPlayer = false;
+        
         // Always create player with current peer ID
-        Player player = new Player(client.getPeerId(), username, x, y);
+        Player player = new Player(client.getPeerId(), username, spawnX, spawnY);
         int databaseId = -1;
 
         // Check if player exists in database and load stats
@@ -195,23 +203,34 @@ public class NetworkManager {
                 player.setMaxHealth(dbPlayer.getMaxHealth());
                 player.setHealth(dbPlayer.getHealth());
 
-                // If the player was saved dead, respawn them at full health on login
+                // Determine spawn position: safe zone if dead, last position if alive
                 if (player.getHealth() <= 0) {
+                    // Player was dead, respawn at safe zone with full health
                     player.setHealth(player.getMaxHealth());
+                    player.setPosition(safeZoneCenterX, safeZoneCenterY);
+                    Logger.info("Dead player respawned at safe zone: " + username);
+                } else {
+                    // Player was alive, spawn at last saved position
+                    player.setPosition(dbPlayer.getX(), dbPlayer.getY());
+                    Logger.info("Returning player spawned at last position: " + username + " (" + dbPlayer.getX() + ", " + dbPlayer.getY() + ")");
                 }
+                
                 Logger.info("Existing player found: " + username + " (dbId=" + databaseId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
             }
         } else {
-            // Create new player in database
+            // Create new player in database at safe zone
             Player newDbPlayer = PlayerRepository.createNewPlayer(username, password);
             if (newDbPlayer != null) {
                 databaseId = newDbPlayer.getDatabaseId();
                 player.setDatabaseId(databaseId);
+                // New players spawn at safe zone (already set above)
+                player.setPosition(safeZoneCenterX, safeZoneCenterY);
+                isNewPlayer = true;
             } else {
                 Logger.error("Failed to create new player " + username);
                 return;
             }
-            Logger.info("New player created: " + username + " (dbId=" + databaseId + ")");
+            Logger.info("New player created at safe zone: " + username + " (dbId=" + databaseId + ")");
         }
 
         // Update position for spawn and mark authenticated

@@ -121,6 +121,7 @@ func _join_as_player():
 		player_instance = player_scene.instantiate()
 		player_instance.name = str(net_manager.peer_id)
 		player_instance.position = Vector2(640, 360)
+		player_instance.is_local_player = true  # Mark as local player
 		add_child(player_instance)
 		_log_client("Local player spawned")
 
@@ -164,6 +165,9 @@ func _update_players(players_data: Array) -> void:
 				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				player_instance.health = p.get("health", 100)
+				# Update attack range from server
+				if player_instance.has_method("update_attack_range"):
+					player_instance.update_attack_range(p.get("attack_range", 200.0))
 			elif player_scene:
 				#_log_client("ERROR: Local player not spawned yet, creating late instance")
 				player_instance = player_scene.instantiate()

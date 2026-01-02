@@ -32,6 +32,7 @@ public class StateSync {
             playerObj.addProperty("xp", player.getXP());
             playerObj.addProperty("level", player.getLevel());
             playerObj.addProperty("alive", player.isAlive());
+            playerObj.addProperty("attack_range", player.getEquippedAttackRange());
             playersArray.add(playerObj);
         }
         message.add("players", playersArray);
