@@ -80,8 +80,22 @@ public class CombatSystem {
         Logger.debug("Enemy " + enemy.getId() + " took " + damage + " damage");
 
         if (!enemy.isAlive()) {
-            Logger.debug("Enemy " + enemy.getId() + " defeated");
+            Logger.info("[FREEZE_DEBUG] Enemy " + enemy.getId() + " died, starting death sequence");
+            
+            enemy.die();  // Mark death time for respawn
+            Logger.info("[FREEZE_DEBUG] Enemy death time marked");
+            
+            Logger.info("[FREEZE_DEBUG] About to remove enemy from active list");
+            state.removeEnemy(enemy);  // Remove from active list immediately
+            Logger.info("[FREEZE_DEBUG] Enemy removed from active list");
+            
+            Logger.info("[FREEZE_DEBUG] About to add enemy to respawn queue");
+            state.addDeadEnemy(enemy);  // Add to respawn queue
+            Logger.info("[FREEZE_DEBUG] Enemy added to respawn queue");
+            
+            Logger.info("[FREEZE_DEBUG] About to call rewardKiller");
             rewardKiller(state, enemy);
+            Logger.info("[FREEZE_DEBUG] rewardKiller complete, death sequence finished");
         }
     }
     
@@ -127,12 +141,18 @@ public class CombatSystem {
             Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
         }
 
-        // Drop item based on enemy template drop rates
-        WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
-        if (dropped != null) {
-            state.addWorldItem(dropped);
-            Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
-        }
+        // Drop item asynchronously to avoid blocking game loop
+        new Thread(() -> {
+            try {
+                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
+                if (dropped != null) {
+                    state.addWorldItem(dropped);
+                    Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
+                }
+            } catch (Exception e) {
+                Logger.error("Error dropping item from enemy " + enemy.getId(), e);
+            }
+        }).start();
     }
 
     private float calculateDistance(float x1, float y1, float x2, float y2) {

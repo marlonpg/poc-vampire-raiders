@@ -73,6 +73,7 @@ public class SpawnerSystem {
             for (int i = 0; i < spidersToSpawn && !pv1Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv1Zones.get(random.nextInt(pv1Zones.size()));
                 Enemy enemy = new Enemy(pos.worldX, pos.worldY, spiderTemplate);
+                enemy.setSpawnLevel(1);
                 gameState.addEnemy(enemy);
             }
         }
@@ -83,6 +84,7 @@ public class SpawnerSystem {
             for (int i = 0; i < wormsToSpawn && !pv2Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv2Zones.get(random.nextInt(pv2Zones.size()));
                 Enemy enemy = new Enemy(pos.worldX, pos.worldY, wormTemplate);
+                enemy.setSpawnLevel(2);
                 gameState.addEnemy(enemy);
             }
         }
@@ -93,6 +95,7 @@ public class SpawnerSystem {
             for (int i = 0; i < dogsToSpawn && !pv3Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv3Zones.get(random.nextInt(pv3Zones.size()));
                 Enemy enemy = new Enemy(pos.worldX, pos.worldY, wildDogTemplate);
+                enemy.setSpawnLevel(3);
                 gameState.addEnemy(enemy);
             }
         }
@@ -103,6 +106,7 @@ public class SpawnerSystem {
             for (int i = 0; i < goblinsToSpawn && !pv4Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv4Zones.get(random.nextInt(pv4Zones.size()));
                 Enemy enemy = new Enemy(pos.worldX, pos.worldY, goblinTemplate);
+                enemy.setSpawnLevel(4);
                 gameState.addEnemy(enemy);
             }
         }
@@ -142,6 +146,7 @@ public class SpawnerSystem {
             if (template != null) {
                 float[] pos = getRandomSpawnPosition(tilemap, level);
                 Enemy enemy = new Enemy(pos[0], pos[1], template);
+                enemy.setSpawnLevel(level);
                 gameState.addEnemy(enemy);
                 Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName() + " Level: " + level);
             }

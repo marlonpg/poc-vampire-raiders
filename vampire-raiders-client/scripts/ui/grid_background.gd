@@ -2,7 +2,7 @@ extends Node2D
 
 const GRID_SIZE = 64
 const LINE_COLOR = Color(0.3, 0.3, 0.4, 1)
-const MAP_GRIDS = 25  # Changed to match small-map.txt 25x25 grid
+const MAP_GRIDS = 100  # Changed to match main-map.txt 100x100 grid
 
 # Tile type codes (must match Java TileType codes)
 const TILE_BLK = "BLK"
@@ -40,7 +40,7 @@ var tilemap_loaded: bool = false
 
 func _ready() -> void:
 	# Load map from file (same map as server uses)
-	var map_data = MapLoader.load_map("small-map.txt")
+	var map_data = MapLoader.load_map("main-map.txt")
 	if map_data.is_empty():
 		push_error("Failed to load map file")
 		return
