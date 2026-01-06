@@ -20,7 +20,7 @@ public class Enemy {
     private long spawnTime;
     private long lastAttackTime = 0;  // Track when enemy last attacked
     private long deathTime = -1;  // Track when enemy died (for respawn)
-    private static final long RESPAWN_DELAY_MS = 30000;  // 30 seconds
+    private static final long RESPAWN_DELAY_MS = 10000;  // 30 seconds
     private int spawnLevel;  // Track which level zone this enemy spawns in
     private float originalSpawnX;  // Original spawn position for respawn
     private float originalSpawnY;
