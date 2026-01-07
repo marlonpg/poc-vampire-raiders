@@ -16,7 +16,7 @@ public class Player {
     private int level;
     private float velocityX;
     private float velocityY;
-    private final float speed = 200f;
+    private float moveSpeed = 100f;  // Default from database
     private long lastUpdateTime;
     private long lastAttackTime = 0;
     private final long baseAttackCooldownMs = 1000;  // Base: 1 attack per second
@@ -41,8 +41,8 @@ public class Player {
     }
 
     public void update(float deltaTime) {
-        x += velocityX * speed * deltaTime;
-        y += velocityY * speed * deltaTime;
+        x += velocityX * moveSpeed * deltaTime;
+        y += velocityY * moveSpeed * deltaTime;
         lastUpdateTime = System.currentTimeMillis();
     }
 
@@ -105,12 +105,15 @@ public class Player {
     public void setMaxHealth(int mh) { this.maxHealth = mh; }
     public void setLevel(int l) { this.level = l; }
     public void setXP(int x) { this.xp = x; }
+    public void setMoveSpeed(float moveSpeed) { this.moveSpeed = moveSpeed; }
     public void setPosition(float x, float y) { this.x = x; this.y = y; }
-        public void setDatabaseId(int id) { 
-            this.databaseId = id;
-            // Load equipped items cache when database ID is set
-            refreshEquippedItemsCache();
-        }
+    public void setDatabaseId(int id) { 
+        this.databaseId = id;
+        // Load equipped items cache when database ID is set
+        refreshEquippedItemsCache();
+    }
+    
+    public float getMoveSpeed() { return moveSpeed; }
 
     public boolean isAlive() {
         return health > 0;

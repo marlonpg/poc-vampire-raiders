@@ -19,12 +19,20 @@ public class Enemy {
     private final String templateName;
     private long spawnTime;
     private long lastAttackTime = 0;  // Track when enemy last attacked
+    private long deathTime = -1;  // Track when enemy died (for respawn)
+    private static final long RESPAWN_DELAY_MS = 10000;  // 30 seconds
+    private int spawnLevel;  // Track which level zone this enemy spawns in
+    private float originalSpawnX;  // Original spawn position for respawn
+    private float originalSpawnY;
 
     public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
         this.templateId = template.getId();
         this.x = x;
         this.y = y;
+        this.originalSpawnX = x;  // Store original position
+        this.originalSpawnY = y;
+        this.spawnLevel = 1;  // Default to PV1, will be set by spawner
         this.templateName = template.getName();
         this.level = template.getLevel();
         this.maxHealth = template.getHp();
@@ -52,8 +60,8 @@ public class Enemy {
             float newX = x + (dx / distance) * speed * deltaTime;
             float newY = y + (dy / distance) * speed * deltaTime;
             
-            // Only update position if walkable (not in moat)
-            if (GameWorld.isWalkable(newX, newY)) {
+            // Check if walkable for enemies (enemies can't enter safe zone)
+            if (GameWorld.isEnemyWalkable(newX, newY)) {
                 x = newX;
                 y = newY;
             }
@@ -76,6 +84,51 @@ public class Enemy {
 
     public boolean isAlive() {
         return health > 0;
+    }
+
+    public void die() {
+        if (health <= 0) {
+            deathTime = System.currentTimeMillis();
+        }
+    }
+
+    public boolean isReadyToRespawn() {
+        if (health > 0) return false;  // Not dead
+        if (deathTime < 0) return false;  // Never died
+        long timeSinceDeath = System.currentTimeMillis() - deathTime;
+        return timeSinceDeath >= RESPAWN_DELAY_MS;
+    }
+
+    public void respawn() {
+        this.health = maxHealth;
+        this.deathTime = -1;
+        this.lastAttackTime = 0;
+        this.spawnTime = System.currentTimeMillis();
+        // Position will be updated by SpawnerSystem using setSpawnLevel
+    }
+
+    public void respawnAt(float newX, float newY) {
+        this.x = newX;
+        this.y = newY;
+        respawn();
+    }
+    public float getOriginalSpawnX() {
+        return originalSpawnX;
+    }
+
+    public float getOriginalSpawnY() {
+        return originalSpawnY;
+    }
+    public long getDeathTime() {
+        return deathTime;
+    }
+
+    public int getSpawnLevel() {
+        return spawnLevel;
+    }
+
+    public void setSpawnLevel(int level) {
+        this.spawnLevel = level;
     }
 
     public int getRewardXP() {

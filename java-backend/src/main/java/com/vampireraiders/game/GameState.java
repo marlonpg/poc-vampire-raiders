@@ -2,10 +2,12 @@ package com.vampireraiders.game;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class GameState {
     private final Map<Integer, Player> players = new ConcurrentHashMap<>();
     private final List<Enemy> enemies = Collections.synchronizedList(new ArrayList<>());
+    private final Queue<Enemy> deadEnemies = new ConcurrentLinkedQueue<>();
     private final List<Bullet> bullets = Collections.synchronizedList(new ArrayList<>());
     private final List<WorldItem> worldItems = Collections.synchronizedList(new ArrayList<>());
     private long worldTime = 0;
@@ -37,6 +39,14 @@ public class GameState {
 
     public void removeEnemy(Enemy enemy) {
         enemies.remove(enemy);
+    }
+
+    public void addDeadEnemy(Enemy enemy) {
+        deadEnemies.offer(enemy);
+    }
+
+    public Queue<Enemy> getDeadEnemies() {
+        return deadEnemies;
     }
 
     public List<Enemy> getAllEnemies() {

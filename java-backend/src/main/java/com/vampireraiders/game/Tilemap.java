@@ -1,170 +1,216 @@
 package com.vampireraiders.game;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Tile-based map system for managing walkability and zone types
+ * Now supports loading from map files instead of procedural generation
  */
 public class Tilemap {
     public static final int TILE_SIZE = 64; // pixels per tile
-    public static final int MAP_WIDTH = 250; // tiles
-    public static final int MAP_HEIGHT = 250; // tiles
     
-    // Tile types
-    public static final int TILE_SAFE_ZONE = 1;      // Green safe zone - walkable, no damage
-    public static final int TILE_MOAT = 2;           // Blue moat - not walkable, blocked
-    public static final int TILE_BRIDGE = 3;         // Green bridge - walkable, crosses moat
-    public static final int TILE_HUNTING = 4;        // Red hunting ground - walkable, enemies spawn
-    
-    private int[][] tiles;
-    
-    public Tilemap() {
-        tiles = new int[MAP_WIDTH][MAP_HEIGHT];
-        generateMap();
-    }
+    private final TileType[][] tiles;
+    private final int mapWidth;
+    private final int mapHeight;
+    private final List<EliteSpawnPoint> eliteSpawns;
     
     /**
-     * Generate the map layout with safe zone, moat, bridges, and hunting grounds
+     * Constructor for file-loaded maps
      */
-    private void generateMap() {
-        // Initialize everything as hunting zone
-        for (int x = 0; x < MAP_WIDTH; x++) {
-            for (int y = 0; y < MAP_HEIGHT; y++) {
-                tiles[x][y] = TILE_HUNTING;
-            }
-        }
+    public Tilemap(TileType[][] tiles, int width, int height) {
+        this.tiles = tiles;
+        this.mapWidth = width;
+        this.mapHeight = height;
+        this.eliteSpawns = new ArrayList<>();
         
-        // Center of map
-        int centerX = MAP_WIDTH / 2;
-        int centerY = MAP_HEIGHT / 2;
-        
-        // Safe zone: 25x25 grids at center
-        int safeZoneSize = 25;
-        int safeHalf = safeZoneSize / 2;
-        for (int x = centerX - safeHalf; x < centerX + safeHalf; x++) {
-            for (int y = centerY - safeHalf; y < centerY + safeHalf; y++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    tiles[x][y] = TILE_SAFE_ZONE;
+        // Extract elite spawn positions
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                TileType type = tiles[x][y];
+                if (type.isEliteSpawn()) {
+                    float worldX = (x + 0.5f) * TILE_SIZE;
+                    float worldY = (y + 0.5f) * TILE_SIZE;
+                    eliteSpawns.add(new EliteSpawnPoint(type.getEliteId(), worldX, worldY));
                 }
             }
         }
-        
-        // Moat: 10 grids wide ring around safe zone
-        int moatWidth = 10;
-        int moatInner = safeHalf;
-        int moatOuter = safeHalf + moatWidth;
-        
-        for (int x = 0; x < MAP_WIDTH; x++) {
-            for (int y = 0; y < MAP_HEIGHT; y++) {
-                if (tiles[x][y] == TILE_HUNTING) { // Only modify hunting tiles
-                    int dx = Math.abs(x - centerX);
-                    int dy = Math.abs(y - centerY);
-                    
-                    // Check if in rectangular moat ring (diamond shape for simplicity)
-                    boolean inMoat = (dx > moatInner || dy > moatInner) && 
-                                     (dx < moatOuter && dy < moatOuter);
-                    
-                    if (inMoat) {
-                        tiles[x][y] = TILE_MOAT;
-                    }
-                }
-            }
-        }
-        
-        // North-South bridges: vertical corridors 6 tiles wide
-        int bridgeWidth = 6;
-        int bridgeHalf = bridgeWidth / 2;
-        
-        // North bridge
-        for (int x = centerX - bridgeHalf; x < centerX + bridgeHalf; x++) {
-            for (int y = centerY - moatOuter; y < centerY - moatInner; y++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    tiles[x][y] = TILE_BRIDGE;
-                }
-            }
-        }
-        
-        // South bridge
-        for (int x = centerX - bridgeHalf; x < centerX + bridgeHalf; x++) {
-            for (int y = centerY + moatInner; y < centerY + moatOuter; y++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    tiles[x][y] = TILE_BRIDGE;
-                }
-            }
-        }
-        
-        // East-West bridges: horizontal corridors 6 tiles wide
-        
-        // West bridge
-        for (int x = centerX - moatOuter; x < centerX - moatInner; x++) {
-            for (int y = centerY - bridgeHalf; y < centerY + bridgeHalf; y++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    tiles[x][y] = TILE_BRIDGE;
-                }
-            }
-        }
-        
-        // East bridge
-        for (int x = centerX + moatInner; x < centerX + moatOuter; x++) {
-            for (int y = centerY - bridgeHalf; y < centerY + bridgeHalf; y++) {
-                if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-                    tiles[x][y] = TILE_BRIDGE;
-                }
-            }
-        }
+    }
+    
+    public int getMapWidth() {
+        return mapWidth;
+    }
+    
+    public int getMapHeight() {
+        return mapHeight;
+    }
+    
+    public List<EliteSpawnPoint> getEliteSpawns() {
+        return eliteSpawns;
     }
     
     /**
      * Get tile type at world position (in pixels)
      */
-    public int getTileAt(float worldX, float worldY) {
+    public TileType getTileAt(float worldX, float worldY) {
         int gridX = (int) (worldX / TILE_SIZE);
         int gridY = (int) (worldY / TILE_SIZE);
         
-        if (gridX < 0 || gridX >= MAP_WIDTH || gridY < 0 || gridY >= MAP_HEIGHT) {
-            return TILE_MOAT; // Out of bounds = blocked
+        if (gridX < 0 || gridX >= mapWidth || gridY < 0 || gridY >= mapHeight) {
+            return TileType.BLOCKED; // Out of bounds = blocked
         }
         
         return tiles[gridX][gridY];
     }
     
     /**
-     * Check if a world position is walkable
+     * Check if a world position is walkable for players
      */
     public boolean isWalkable(float worldX, float worldY) {
-        int tileType = getTileAt(worldX, worldY);
-        return tileType != TILE_MOAT; // Moat is the only blocked tile
+        TileType type = getTileAt(worldX, worldY);
+        return type.isPlayerWalkable();
+    }
+    
+    /**
+     * Check if a world position is walkable for enemies
+     */
+    public boolean isEnemyWalkable(float worldX, float worldY) {
+        TileType type = getTileAt(worldX, worldY);
+        return type.isEnemyWalkable();
     }
     
     /**
      * Check if position is in safe zone
      */
     public boolean isInSafeZone(float worldX, float worldY) {
-        return getTileAt(worldX, worldY) == TILE_SAFE_ZONE;
+        TileType type = getTileAt(worldX, worldY);
+        return type.isSafeZone();
     }
     
     /**
-     * Check if position is in hunting zone (where enemies spawn)
+     * Check if position is in hunting zone (any PVE area where enemies can be)
      */
     public boolean isInHuntingZone(float worldX, float worldY) {
-        return getTileAt(worldX, worldY) == TILE_HUNTING;
+        TileType type = getTileAt(worldX, worldY);
+        return type.isEnemyWalkable() && !type.isSafeZone();
     }
     
     /**
-     * Get tile type name for debugging
+     * Get spawn level for a position (null if not a spawn zone)
      */
-    public static String getTileName(int tileType) {
-        switch (tileType) {
-            case TILE_SAFE_ZONE: return "SAFE_ZONE";
-            case TILE_MOAT: return "MOAT";
-            case TILE_BRIDGE: return "BRIDGE";
-            case TILE_HUNTING: return "HUNTING";
-            default: return "UNKNOWN";
+    public Integer getSpawnLevel(float worldX, float worldY) {
+        TileType type = getTileAt(worldX, worldY);
+        return type.getSpawnLevel();
+    }
+    
+    /**
+     * Check if position is an elite spawn point
+     */
+    public boolean isEliteSpawn(float worldX, float worldY) {
+        TileType type = getTileAt(worldX, worldY);
+        return type.isEliteSpawn();
+    }
+    
+    /**
+     * Get the center of the safe zone
+     */
+    public float[] getSafeZoneCenter() {
+        // Find center of all safe zone tiles
+        int count = 0;
+        float sumX = 0, sumY = 0;
+        
+        for (int x = 0; x < mapWidth; x++) {
+            for (int y = 0; y < mapHeight; y++) {
+                if (tiles[x][y].isSafeZone()) {
+                    sumX += (x + 0.5f) * TILE_SIZE;
+                    sumY += (y + 0.5f) * TILE_SIZE;
+                    count++;
+                }
+            }
+        }
+        
+        if (count == 0) {
+            // Fallback to map center
+            return new float[] {
+                (mapWidth * TILE_SIZE) / 2.0f,
+                (mapHeight * TILE_SIZE) / 2.0f
+            };
+        }
+        
+        return new float[] { sumX / count, sumY / count };
+    }
+    
+    /**
+     * Get all tiles of a specific type
+     */
+    public List<TilePosition> getTilesOfType(TileType targetType) {
+        List<TilePosition> positions = new ArrayList<>();
+        for (int x = 0; x < mapWidth; x++) {
+            for (int y = 0; y < mapHeight; y++) {
+                if (tiles[x][y] == targetType) {
+                    float worldX = (x + 0.5f) * TILE_SIZE;
+                    float worldY = (y + 0.5f) * TILE_SIZE;
+                    positions.add(new TilePosition(x, y, worldX, worldY));
+                }
+            }
+        }
+        return positions;
+    }
+    
+    /**
+     * Get all spawn zones of a specific level
+     */
+    public List<TilePosition> getSpawnZones(int level) {
+        List<TilePosition> positions = new ArrayList<>();
+        for (int x = 0; x < mapWidth; x++) {
+            for (int y = 0; y < mapHeight; y++) {
+                TileType type = tiles[x][y];
+                if (type.getSpawnLevel() != null && type.getSpawnLevel() == level) {
+                    float worldX = (x + 0.5f) * TILE_SIZE;
+                    float worldY = (y + 0.5f) * TILE_SIZE;
+                    positions.add(new TilePosition(x, y, worldX, worldY));
+                }
+            }
+        }
+        return positions;
+    }
+    
+    /**
+     * Elite spawn point data
+     */
+    public static class EliteSpawnPoint {
+        public final int eliteId;
+        public final float x;
+        public final float y;
+        
+        public EliteSpawnPoint(int eliteId, float x, float y) {
+            this.eliteId = eliteId;
+            this.x = x;
+            this.y = y;
+        }
+    }
+    
+    /**
+     * Tile position data
+     */
+    public static class TilePosition {
+        public final int gridX;
+        public final int gridY;
+        public final float worldX;
+        public final float worldY;
+        
+        public TilePosition(int gridX, int gridY, float worldX, float worldY) {
+            this.gridX = gridX;
+            this.gridY = gridY;
+            this.worldX = worldX;
+            this.worldY = worldY;
         }
     }
     
     /**
      * Get raw tile grid (for debugging/visualization)
      */
-    public int[][] getTiles() {
+    public TileType[][] getTiles() {
         return tiles;
     }
 }

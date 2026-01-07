@@ -64,8 +64,8 @@ public class CombatSystem {
                             Logger.info("Player " + player.getUsername() + " died");
                             // On death: drop all equipped + inventory items to the world
                             dropAllItemsForPlayer(state, player);
-                            // Respawn at safe zone center
-                            respawnPlayer(player);
+                            // Respawn at safe zone center (get tilemap from GameWorld)
+                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
                         }
                     }
                 }
@@ -80,19 +80,32 @@ public class CombatSystem {
         Logger.debug("Enemy " + enemy.getId() + " took " + damage + " damage");
 
         if (!enemy.isAlive()) {
-            Logger.debug("Enemy " + enemy.getId() + " defeated");
+            Logger.info("[FREEZE_DEBUG] Enemy " + enemy.getId() + " died, starting death sequence");
+            
+            enemy.die();  // Mark death time for respawn
+            Logger.info("[FREEZE_DEBUG] Enemy death time marked");
+            
+            Logger.info("[FREEZE_DEBUG] About to remove enemy from active list");
+            state.removeEnemy(enemy);  // Remove from active list immediately
+            Logger.info("[FREEZE_DEBUG] Enemy removed from active list");
+            
+            Logger.info("[FREEZE_DEBUG] About to add enemy to respawn queue");
+            state.addDeadEnemy(enemy);  // Add to respawn queue
+            Logger.info("[FREEZE_DEBUG] Enemy added to respawn queue");
+            
+            Logger.info("[FREEZE_DEBUG] About to call rewardKiller");
             rewardKiller(state, enemy);
+            Logger.info("[FREEZE_DEBUG] rewardKiller complete, death sequence finished");
         }
     }
     
     /**
      * Respawn a player at the safe zone center with full health
      */
-    public void respawnPlayer(Player player) {
+    public void respawnPlayer(Player player, Tilemap tilemap) {
         // Teleport to safe zone center
-        float safeZoneCenterX = (float) (Tilemap.MAP_WIDTH * Tilemap.TILE_SIZE) / 2.0f;
-        float safeZoneCenterY = (float) (Tilemap.MAP_HEIGHT * Tilemap.TILE_SIZE) / 2.0f;
-        player.setPosition(safeZoneCenterX, safeZoneCenterY);
+        float[] center = tilemap.getSafeZoneCenter();
+        player.setPosition(center[0], center[1]);
         
         // Reset health to full
         player.setHealth(player.getMaxHealth());
@@ -128,12 +141,18 @@ public class CombatSystem {
             Logger.debug("Enemy " + enemy.getId() + " defeated but no player nearby to reward XP");
         }
 
-        // Drop item based on enemy template drop rates
-        WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
-        if (dropped != null) {
-            state.addWorldItem(dropped);
-            Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
-        }
+        // Drop item asynchronously to avoid blocking game loop
+        new Thread(() -> {
+            try {
+                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
+                if (dropped != null) {
+                    state.addWorldItem(dropped);
+                    Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
+                }
+            } catch (Exception e) {
+                Logger.error("Error dropping item from enemy " + enemy.getId(), e);
+            }
+        }).start();
     }
 
     private float calculateDistance(float x1, float y1, float x2, float y2) {

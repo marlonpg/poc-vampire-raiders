@@ -3,14 +3,17 @@ package com.vampireraiders.game;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.systems.CombatSystem;
 import com.vampireraiders.systems.StateSync;
+import com.vampireraiders.util.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 
 public class GameWorld {
-    private static final Tilemap tilemap = new Tilemap();
+    private static Tilemap tilemap;
     private static final int GRID_SIZE = 64;
-    private static final int WORLD_WIDTH = Tilemap.MAP_WIDTH * GRID_SIZE;
-    private static final int WORLD_HEIGHT = Tilemap.MAP_HEIGHT * GRID_SIZE;
+    private static int WORLD_WIDTH;
+    private static int WORLD_HEIGHT;
 
     private final GameState state;
     private final CombatSystem combatSystem;
@@ -19,6 +22,18 @@ public class GameWorld {
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
 
     public GameWorld() {
+        this(null);
+    }
+    
+    public GameWorld(String mapFile) {
+        // Load map
+        if (mapFile == null || mapFile.isEmpty()) {
+            mapFile = "main-map.txt"; // Default map
+        }
+        tilemap = MapLoader.loadMap(mapFile);
+        WORLD_WIDTH = tilemap.getMapWidth() * GRID_SIZE;
+        WORLD_HEIGHT = tilemap.getMapHeight() * GRID_SIZE;
+        
         this.state = new GameState();
         this.combatSystem = new CombatSystem();
         this.stateSync = null;
@@ -113,11 +128,27 @@ public class GameWorld {
 
         // Remove dead enemies and expired bullets
         List<Enemy> enemiesToRemove = new ArrayList<>();
-        for (Enemy e : state.getAllEnemies()) {
-            if (!e.isAlive()) {
-                enemiesToRemove.add(e);
+        
+        // Process respawning enemies from queue
+        Queue<Enemy> deadEnemies = state.getDeadEnemies();
+        int queueSize = deadEnemies.size();
+        
+        // Only check each enemy once per frame to avoid infinite loop
+        for (int i = 0; i < queueSize; i++) {
+            Enemy deadEnemy = deadEnemies.poll();
+            if (deadEnemy == null) break;
+            
+            if (deadEnemy.isReadyToRespawn()) {
+                // Respawn at original position
+                deadEnemy.respawnAt(deadEnemy.getOriginalSpawnX(), deadEnemy.getOriginalSpawnY());
+                state.addEnemy(deadEnemy);  // Re-add to active enemies list
+                Logger.info("Enemy " + deadEnemy.getId() + " (" + deadEnemy.getTemplateName() + ") respawned at (" + deadEnemy.getX() + "," + deadEnemy.getY() + ")");
+            } else {
+                // Not ready yet, put back in queue
+                deadEnemies.offer(deadEnemy);
             }
         }
+        
         for (Enemy e : enemiesToRemove) {
             state.removeEnemy(e);
             //System.out.println("[CLEANUP] Removed dead enemy, remaining: " + state.getAllEnemies().size());
@@ -221,10 +252,17 @@ public class GameWorld {
     }
     
     /**
-     * Check if position is walkable (tile-based)
+     * Check if position is walkable for players (tile-based)
      */
     public static boolean isWalkable(float x, float y) {
         return tilemap.isWalkable(x, y);
+    }
+    
+    /**
+     * Check if position is walkable for enemies (tile-based)
+     */
+    public static boolean isEnemyWalkable(float x, float y) {
+        return tilemap.isEnemyWalkable(x, y);
     }
     
     /**

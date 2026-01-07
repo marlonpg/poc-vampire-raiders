@@ -9,6 +9,8 @@ const ATTACK_COOLDOWN := 1.0
 var velocity := Vector2.ZERO
 var health := 100
 var xp := 0
+var attack_range := 200.0  # Received from server, default 200
+var is_local_player := false  # Set by world script to identify local player
 
 # Weapon handling
 const DEFAULT_WEAPON := "Steel Sword"
@@ -102,6 +104,11 @@ func sync_state(pos, h, x):
 	health = h
 	xp = x
 
+# Update attack range from server state
+func update_attack_range(range: float):
+	attack_range = range
+	queue_redraw()  # Trigger redraw when range changes
+
 # =========================
 # DAMAGE
 # =========================
@@ -140,7 +147,9 @@ func equip_weapon(name: String):
 # =========================
 func _draw():
 	draw_rect(Rect2(Vector2(-10, -10), Vector2(20, 20)), Color.BLUE)
-	draw_circle(Vector2.ZERO, ATTACK_RADIUS, Color(0, 0, 1, 0.15))
+	# Only draw attack range circle for local player
+	if is_local_player:
+		draw_circle(Vector2.ZERO, attack_range, Color(0.5, 0.5, 0.5, 0.15))
 
 func _role() -> String:
 	return "SERVER" if multiplayer.is_server() else "CLIENT"

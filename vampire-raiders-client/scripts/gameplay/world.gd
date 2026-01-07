@@ -121,6 +121,7 @@ func _join_as_player():
 		player_instance = player_scene.instantiate()
 		player_instance.name = str(net_manager.peer_id)
 		player_instance.position = Vector2(640, 360)
+		player_instance.is_local_player = true  # Mark as local player
 		add_child(player_instance)
 		_log_client("Local player spawned")
 
@@ -164,6 +165,9 @@ func _update_players(players_data: Array) -> void:
 				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
 				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
 				player_instance.health = p.get("health", 100)
+				# Update attack range from server
+				if player_instance.has_method("update_attack_range"):
+					player_instance.update_attack_range(p.get("attack_range", 200.0))
 			elif player_scene:
 				#_log_client("ERROR: Local player not spawned yet, creating late instance")
 				player_instance = player_scene.instantiate()
@@ -266,6 +270,12 @@ func _update_enemies(enemies_data: Array):
 				var enemy = enemy_scene.instantiate()
 				enemy.name = "Enemy_%d" % enemy_id
 				enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
+				# Set enemy template info
+				enemy.template_id = enemy_data.get("template_id", 0)
+				enemy.template_name = template_name
+				enemy.level = enemy_data.get("level", 1)
+				enemy.max_health = enemy_data.get("max_health", 30)
+				enemy.health = enemy_data.get("health", 30)
 				add_child(enemy)
 				enemies[enemy_id] = enemy
 				
@@ -273,10 +283,12 @@ func _update_enemies(enemies_data: Array):
 		
 		server_ids[enemy_id] = true
 		
-		# Update enemy position (check if node is still valid)
+		# Update enemy position and health (check if node is still valid)
 		if enemy_id in enemies and is_instance_valid(enemies[enemy_id]):
 			var enemy = enemies[enemy_id]
 			enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
+			enemy.health = enemy_data.get("health", enemy.max_health)
+			enemy.max_health = enemy_data.get("max_health", 30)
 	
 	# Remove enemies that no longer exist on server
 	var to_remove = []
