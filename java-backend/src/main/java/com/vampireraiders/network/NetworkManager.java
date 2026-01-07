@@ -499,7 +499,7 @@ public class NetworkManager {
                 }
 
                 for (int peerId : disconnected) {
-                    GameClient client = clients.remove(peerId);
+                    clients.remove(peerId);
                     notifyClientDisconnected(peerId);
                     Logger.info("Client disconnected (timeout): PeerID " + peerId);
                 }
