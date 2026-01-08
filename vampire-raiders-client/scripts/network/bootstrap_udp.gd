@@ -1,5 +1,5 @@
 extends Node
-## Bootstrap script that connects to Java UDP server instead of using Godot's native multiplayer
+## Dev-only helper: manual UDP bootstrap (not used in default startup)
 
 @export var server_ip: String = "127.0.0.1"
 @export var player_username: String = "TestPlayer"

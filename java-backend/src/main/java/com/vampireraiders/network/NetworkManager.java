@@ -18,6 +18,9 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.nio.charset.StandardCharsets;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * TCP-based NetworkManager for JSON communication with Godot clients
@@ -31,6 +34,17 @@ public class NetworkManager {
     private volatile boolean running = false;
     private int nextPeerId = 1;
     private static final long HEARTBEAT_TIMEOUT = 30000; // 30 seconds
+
+    // UDP support for low-latency inputs (hybrid transport)
+    private DatagramSocket udpSocket;
+    private Thread udpThread;
+    private final Map<Integer, InetSocketAddress> udpClients = new ConcurrentHashMap<>();
+    private final Map<Integer, String> udpTokens = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> udpLastSeq = new ConcurrentHashMap<>();
+    private final Map<Integer, TokenBucket> udpBuckets = new ConcurrentHashMap<>();
+
+    private static final int UDP_INPUT_RATE = 30; // per second
+    private static final int UDP_BUCKET_CAPACITY = 60; // burst allowance
 
     public NetworkManager(int port, GameWorld gameWorld) {
         this.port = port;
@@ -53,6 +67,12 @@ public class NetworkManager {
         heartbeatThread.setName("HeartbeatChecker");
         heartbeatThread.setDaemon(true);
         heartbeatThread.start();
+
+        // Start UDP server for low-latency input (same port)
+        udpThread = new Thread(this::runUdpServer);
+        udpThread.setName("UDPServer");
+        udpThread.setDaemon(true);
+        udpThread.start();
 
         Logger.info("Server ready for TCP connections");
     }
@@ -253,6 +273,10 @@ public class NetworkManager {
         ack.addProperty("db_id", databaseId);
         ack.addProperty("level", player.getLevel());
         ack.addProperty("xp", player.getXP());
+        // Issue a per-session UDP token for securing UDP messages
+        String udpToken = java.util.UUID.randomUUID().toString();
+        udpTokens.put(client.getPeerId(), udpToken);
+        ack.addProperty("udp_token", udpToken);
         sendToClient(client, ack.toString());
     }
 
@@ -537,6 +561,9 @@ public class NetworkManager {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
+            if (udpSocket != null && !udpSocket.isClosed()) {
+                udpSocket.close();
+            }
         } catch (IOException e) {
             Logger.error("Error closing server socket", e);
         }
@@ -577,5 +604,194 @@ public class NetworkManager {
 
     public int getClientCount() {
         return clients.size();
+    }
+
+    // =========================
+    // UDP SERVER (INPUT CHANNEL)
+    // =========================
+    private void runUdpServer() {
+        try {
+            udpSocket = new DatagramSocket(port);
+            Logger.info("UDP Server started on port " + port);
+
+            byte[] buffer = new byte[2048];
+            while (running) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    udpSocket.receive(packet);
+                } catch (IOException se) {
+                    if (!running) break; // socket closed during stop()
+                    Logger.error("UDP receive error: " + se.getMessage());
+                    continue;
+                }
+
+                String data = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8).trim();
+                if (data.isEmpty()) continue;
+
+                try {
+                    JsonObject message = JsonParser.parseString(data).getAsJsonObject();
+                    String type = message.has("type") ? message.get("type").getAsString() : null;
+                    if (type == null) continue;
+
+                    switch (type) {
+                        case "register_udp": {
+                            if (!message.has("peer_id") || !message.has("token") || !message.has("seq") || !message.has("hmac")) break;
+                            int pid = message.get("peer_id").getAsInt();
+                            String token = message.get("token").getAsString();
+                            String expected = udpTokens.get(pid);
+                            if (expected == null || !expected.equals(token)) {
+                                Logger.debug("UDP register rejected for peer " + pid + ": invalid token");
+                                break;
+                            }
+                            long seq = message.get("seq").getAsLong();
+                            String hmac = message.get("hmac").getAsString();
+                            if (!validateHmac(expected, type, pid, null, null, seq, hmac)) {
+                                Logger.debug("UDP register rejected for peer " + pid + ": bad hmac");
+                                break;
+                            }
+                            if (isReplay(pid, seq)) {
+                                Logger.debug("UDP register replay detected for peer " + pid + " seq=" + seq);
+                                break;
+                            }
+                            InetSocketAddress addr = new InetSocketAddress(packet.getAddress(), packet.getPort());
+                            udpClients.put(pid, addr);
+                            udpBuckets.put(pid, new TokenBucket(UDP_BUCKET_CAPACITY, UDP_INPUT_RATE));
+                            Logger.info("UDP registered for peer " + pid + " @ " + addr);
+                            break;
+                        }
+                        case "player_input": {
+                            if (!message.has("peer_id") || !message.has("dir_x") || !message.has("dir_y") || !message.has("token") || !message.has("seq") || !message.has("hmac")) break;
+                            int pid = message.get("peer_id").getAsInt();
+                            String token = message.get("token").getAsString();
+                            String expected = udpTokens.get(pid);
+                            if (expected == null || !expected.equals(token)) {
+                                Logger.debug("UDP input rejected for peer " + pid + ": invalid token");
+                                break;
+                            }
+                            long seq = message.get("seq").getAsLong();
+                            String hmac = message.get("hmac").getAsString();
+                            Integer dx_i = message.has("dx_i") ? message.get("dx_i").getAsInt() : null;
+                            Integer dy_i = message.has("dy_i") ? message.get("dy_i").getAsInt() : null;
+                            if (!validateHmac(expected, type, pid, dx_i, dy_i, seq, hmac)) {
+                                Logger.debug("UDP input rejected for peer " + pid + ": bad hmac");
+                                break;
+                            }
+                            if (isReplay(pid, seq)) {
+                                Logger.debug("UDP input replay detected for peer " + pid + " seq=" + seq);
+                                break;
+                            }
+
+                            // Rate limit
+                            TokenBucket bucket = udpBuckets.computeIfAbsent(pid, k -> new TokenBucket(UDP_BUCKET_CAPACITY, UDP_INPUT_RATE));
+                            if (!bucket.tryConsume()) {
+                                Logger.debug("UDP input rate limited for peer " + pid);
+                                break;
+                            }
+
+                            float dx = message.get("dir_x").getAsFloat();
+                            float dy = message.get("dir_y").getAsFloat();
+
+                            // Sanity checks: clamp vector length to <= 1 and ignore NaNs/Infs
+                            if (!Float.isFinite(dx) || !Float.isFinite(dy)) {
+                                break;
+                            }
+                            float len = (float)Math.sqrt(dx * dx + dy * dy);
+                            if (len > 1.0f && len > 0.0f) {
+                                dx /= len;
+                                dy /= len;
+                            }
+
+                            GameClient client = clients.get(pid);
+                            if (client != null && client.getPlayer() != null) {
+                                client.getPlayer().setInputDirection(dx, dy);
+                                client.updateHeartbeat();
+                                notifyClientInput(pid, "move", dx, dy);
+                            }
+                            break;
+                        }
+                        default:
+                            // Ignore other UDP message types for now
+                            break;
+                    }
+                } catch (Exception ex) {
+                    Logger.debug("Invalid UDP message: " + ex.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            if (running) {
+                Logger.error("Failed to start UDP server on port " + port + ": " + e.getMessage());
+            }
+        }
+    }
+
+    private boolean isReplay(int peerId, long seq) {
+        Long last = udpLastSeq.get(peerId);
+        if (last != null && seq <= last) {
+            return true;
+        }
+        udpLastSeq.put(peerId, seq);
+        return false;
+    }
+
+    private boolean validateHmac(String token, String type, int peerId, Integer dx_i, Integer dy_i, long seq, String providedHex) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append(type).append('|').append(peerId).append('|').append(seq);
+            if (dx_i != null && dy_i != null) {
+                sb.append('|').append(dx_i).append('|').append(dy_i);
+            }
+            String data = sb.toString();
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(token.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] out = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            String expectedHex = bytesToHex(out);
+            return expectedHex.equalsIgnoreCase(providedHex);
+        } catch (Exception e) {
+            Logger.error("HMAC validation error", e);
+            return false;
+        }
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexArray = "0123456789abcdef".toCharArray();
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    private static class TokenBucket {
+        private final int capacity;
+        private final int ratePerSec;
+        private double tokens;
+        private long lastRefillNanos;
+
+        TokenBucket(int capacity, int ratePerSec) {
+            this.capacity = capacity;
+            this.ratePerSec = ratePerSec;
+            this.tokens = capacity;
+            this.lastRefillNanos = System.nanoTime();
+        }
+
+        synchronized boolean tryConsume() {
+            refill();
+            if (tokens >= 1.0) {
+                tokens -= 1.0;
+                return true;
+            }
+            return false;
+        }
+
+        private void refill() {
+            long now = System.nanoTime();
+            double elapsedSec = (now - lastRefillNanos) / 1_000_000_000.0;
+            if (elapsedSec > 0) {
+                tokens = Math.min(capacity, tokens + elapsedSec * ratePerSec);
+                lastRefillNanos = now;
+            }
+        }
     }
 }

@@ -11,6 +11,7 @@ var socket: StreamPeerTCP
 var server_ip: String = ""
 var is_server: bool = false
 var peer_id: int = -1
+var udp_token: String = ""
 var connected: bool = false
 var connection_time: float = 0.0
 var last_status: int = -1
@@ -98,6 +99,7 @@ func _handle_server_message(data: Dictionary):
 	match data.get("type"):
 		"player_joined":
 			peer_id = data.get("peer_id", -1)
+			udp_token = data.get("udp_token", "")
 			print("[NETWORK] Got peer ID: ", peer_id)
 		"game_state":
 			game_state_received.emit(data)
@@ -127,6 +129,21 @@ func send_json(data: Dictionary) -> bool:
 	var json_str = JSON.stringify(data)
 	var result = socket.put_data((json_str + "\n").to_utf8_buffer()) == OK
 	return result
+
+# Preferred input sender: UDP-first with TCP fallback
+func send_player_input(dir_x: float, dir_y: float) -> bool:
+	# Look for UDP helper under Bootstrap
+	var udp_client: Node = get_node_or_null("/root/Bootstrap/UDPNetworkClient")
+	if udp_client and udp_client.has_method("send_player_input"):
+		var ok = udp_client.send_player_input(dir_x, dir_y)
+		if ok:
+			return true
+	# Fallback to TCP JSON
+	return send_json({
+		"type": "player_input",
+		"dir_x": dir_x,
+		"dir_y": dir_y
+	})
 
 func is_tcp_connected() -> bool:
 	if not socket:

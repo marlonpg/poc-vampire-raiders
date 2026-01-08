@@ -394,11 +394,7 @@ func _process(delta):
 		var should_send = (input_dir != last_input_dir) or (input_send_timer >= input_send_interval)
 		
 		if should_send:
-			net_manager.send_json({
-				"type": "player_input",
-				"dir_x": input_dir.x,
-				"dir_y": input_dir.y
-			})
+			net_manager.send_player_input(input_dir.x, input_dir.y)
 			last_input_dir = input_dir
 			input_send_timer = 0.0
 
