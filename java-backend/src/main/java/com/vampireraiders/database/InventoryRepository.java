@@ -107,8 +107,13 @@ public class InventoryRepository {
     }
 
     public static int[] findNextAvailableSlot(int playerId, int gridCols, int gridRows) {
-        // Fetch all occupied slots
-        String sql = "SELECT slot_x, slot_y FROM inventory WHERE player_id = ? ORDER BY slot_y, slot_x";
+        // Fetch all occupied slots, EXCLUDING equipped items
+        // Equipped items remain in inventory table but their slots should be available for new items
+        String sql = "SELECT i.slot_x, i.slot_y FROM inventory i " +
+                     "LEFT JOIN equipped_items e ON e.player_id = i.player_id " +
+                     "AND (e.weapon = i.id OR e.helmet = i.id OR e.armor = i.id OR e.boots = i.id) " +
+                     "WHERE i.player_id = ? AND e.player_id IS NULL " +
+                     "ORDER BY i.slot_y, i.slot_x";
         java.util.Set<String> occupied = new java.util.HashSet<>();
         
         try (Connection conn = DatabaseConnection.getConnection();

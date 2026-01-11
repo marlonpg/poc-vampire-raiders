@@ -340,9 +340,8 @@ func _equip_item_from_inventory(inventory_index: int, slot_type: String):
 		inventory_items[inventory_index] = old_item
 		# Re-render the inventory cell with the old item
 		_place_item_at(old_item, inventory_index)
-	else:
-		# No item in slot, just remove from inventory
-		inventory_items.erase(inventory_index)
+	# Note: We don't erase the item from inventory_items because it's still in the database
+	# It just won't be rendered since it's in the equipped_inv_ids filter
 
 	# Equip new item
 	equipped_items[slot_type] = item
@@ -499,14 +498,23 @@ func _unequip_item_to_inventory_at_index(slot_type: String, inventory_index: int
 	
 	# Send unequip message to server
 	if net_manager and item.has("inventory_id"):
+		var slot_x = inventory_index % GRID_COLS
+		var slot_y = int(inventory_index / GRID_COLS)
 		var swap_item_id = existing_item.get("inventory_id") if existing_item else null
 		
+		# First unequip the item
 		net_manager.send_json({
 			"type": "unequip_item",
 			"inventory_id": item["inventory_id"],
-			"slot_type": slot_type,
-			"target_inventory_index": inventory_index,
-			"swap_inventory_id": swap_item_id
+			"slot_type": slot_type
+		})
+		
+		# Then update its inventory position
+		net_manager.send_json({
+			"type": "move_inventory_item",
+			"inventory_id": item["inventory_id"],
+			"slot_x": slot_x,
+			"slot_y": slot_y
 		})
 	
 	# Refresh inventory display
