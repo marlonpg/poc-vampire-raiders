@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.vampireraiders.config.ServerConfig;
 import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.InventoryRepository;
+import com.vampireraiders.database.ItemTemplateRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.GameState;
@@ -335,6 +336,26 @@ public class NetworkManager {
             return;
         }
         
+        // Get item template info to check if stackable
+        int itemTemplateId = item.getItemTemplateId();
+        var itemTemplate = ItemTemplateRepository.getItemTemplate(itemTemplateId);
+        boolean isStackable = itemTemplate != null && itemTemplate.isStackable();
+        Logger.info("PICKUP: Item template " + itemTemplateId + " is stackable: " + isStackable);
+        
+        // For stackable items, check if we already have this item type
+        if (isStackable) {
+            Long existingInventoryId = InventoryRepository.findExistingStackableItemTemplate(playerId, itemTemplateId);
+            if (existingInventoryId != null) {
+                Logger.info("PICKUP: Found existing stackable item, incrementing quantity for inventory_id=" + existingInventoryId);
+                InventoryRepository.incrementItemQuantity(existingInventoryId);
+                // Delete this world item since we're stacking it (don't need duplicate world_item rows)
+                WorldItemRepository.deleteWorldItem(worldItemId);
+                gameWorld.getState().removeWorldItem(item);
+                Logger.info("PICKUP: Item stacked and deleted from world_items. Pickup complete for item " + worldItemId);
+                return;
+            }
+        }
+        
         boolean claimed = WorldItemRepository.claimWorldItem(worldItemId, playerId);
         Logger.info("PICKUP: Claim result: " + claimed);
         if (!claimed) {
@@ -388,10 +409,11 @@ public class NetworkManager {
             obj.addProperty("defense", ((Number) row.get("defense")).intValue());
             obj.addProperty("rarity", (String) row.get("rarity"));
             obj.addProperty("stackable", (Boolean) row.get("stackable"));
+            obj.addProperty("quantity", ((Number) row.get("quantity")).intValue());
             obj.addProperty("slot_x", ((Number) row.get("slot_x")).intValue());
             obj.addProperty("slot_y", ((Number) row.get("slot_y")).intValue());
             arr.add(obj);
-            Logger.info("  - Item: " + row.get("name") + " at slot (" + row.get("slot_x") + "," + row.get("slot_y") + ")");
+            Logger.info("  - Item: " + row.get("name") + " at slot (" + row.get("slot_x") + "," + row.get("slot_y") + "), quantity: " + row.get("quantity"));
         }
         payload.add("items", arr);
 
@@ -433,22 +455,57 @@ public class NetworkManager {
         if (!message.has("inventory_id")) return;
         Player player = gameWorld.getState().getPlayer(client.getPeerId());
         if (player == null) return;
+        
         long inventoryId = message.get("inventory_id").getAsLong();
         Long worldItemId = InventoryRepository.getWorldItemIdForInventory(inventoryId);
         if (worldItemId == null) return;
-        // Remove from inventory
-        InventoryRepository.deleteInventoryItem(inventoryId);
-        // Unclaim world item back into world at player's current position
-        boolean ok = WorldItemRepository.unclaimWorldItem(worldItemId, player.getX(), player.getY());
-        if (!ok) return;
-        // Fetch info to add into state so clients see the drop
-        var info = WorldItemRepository.getWorldItemInfo(worldItemId);
-        if (info != null) {
-            int templateId = ((Number) info.get("item_template_id")).intValue();
-            String name = (String) info.get("name");
-            WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
-            wi.setTemplateName(name);
-            gameWorld.getState().addWorldItem(wi);
+        
+        // Get the quantity before deleting
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        var inventoryItems = InventoryRepository.getInventoryForPlayer(playerId);
+        int quantity = 1;
+        for (var item : inventoryItems) {
+            if (((Number) item.get("inventory_id")).longValue() == inventoryId) {
+                quantity = ((Number) item.get("quantity")).intValue();
+                break;
+            }
+        }
+        
+        Logger.info("DROP: Dropping inventory_id=" + inventoryId + " with quantity=" + quantity);
+        
+        if (quantity > 1) {
+            // For stacked items, only drop 1 and decrement the stack
+            InventoryRepository.decrementItemQuantity(inventoryId);
+            Logger.info("DROP: Decremented quantity, " + (quantity - 1) + " items remain in inventory");
+            
+            // Create a new world item for the dropped item
+            int templateId = -1;
+            var info = WorldItemRepository.getWorldItemInfo(worldItemId);
+            if (info != null) {
+                templateId = ((Number) info.get("item_template_id")).intValue();
+                String name = (String) info.get("name");
+                long newWorldItemId = WorldItemRepository.createWorldItemAndGetId(templateId, player.getX(), player.getY());
+                if (newWorldItemId > 0) {
+                    WorldItem wi = new WorldItem(newWorldItemId, templateId, player.getX(), player.getY(), null);
+                    wi.setTemplateName(name);
+                    gameWorld.getState().addWorldItem(wi);
+                    Logger.info("DROP: Created new world item " + newWorldItemId + " for dropped item");
+                }
+            }
+        } else {
+            // For non-stacked items or last item in stack, delete from inventory and unclaim
+            InventoryRepository.deleteInventoryItem(inventoryId);
+            boolean ok = WorldItemRepository.unclaimWorldItem(worldItemId, player.getX(), player.getY());
+            if (!ok) return;
+            
+            var info = WorldItemRepository.getWorldItemInfo(worldItemId);
+            if (info != null) {
+                int templateId = ((Number) info.get("item_template_id")).intValue();
+                String name = (String) info.get("name");
+                WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
+                wi.setTemplateName(name);
+                gameWorld.getState().addWorldItem(wi);
+            }
         }
     }
 

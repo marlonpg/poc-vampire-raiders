@@ -81,4 +81,44 @@ public class WorldItemRepository {
         }
         return null;
     }
+
+    public static long createWorldItemAndGetId(int itemTemplateId, float x, float y) {
+        String sql = "INSERT INTO world_items (item_template_id, x, y) VALUES (?, ?, ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            stmt.setInt(1, itemTemplateId);
+            stmt.setFloat(2, x);
+            stmt.setFloat(3, y);
+            stmt.executeUpdate();
+
+            try (ResultSet rs = stmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    long id = rs.getLong(1);
+                    Logger.info("Created world item id=" + id + " template=" + itemTemplateId + " at (" + x + "," + y + ")");
+                    return id;
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error("Failed to create world item: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    public static boolean deleteWorldItem(long worldItemId) {
+        String sql = "DELETE FROM world_items WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, worldItemId);
+            int rows = stmt.executeUpdate();
+            if (rows > 0) {
+                Logger.info("Deleted world item id=" + worldItemId);
+                return true;
+            }
+        } catch (SQLException e) {
+            Logger.error("Failed to delete world item: " + e.getMessage());
+        }
+        return false;
+    }
 }

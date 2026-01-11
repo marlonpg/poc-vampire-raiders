@@ -61,4 +61,14 @@ public class ItemTemplateRepository {
         }
         return cache;
     }
+
+    public static ItemTemplate getItemTemplate(int templateId) {
+        if (cache.isEmpty()) {
+            loadTemplates();
+        }
+        return cache.stream()
+                .filter(t -> t.getId() == templateId)
+                .findFirst()
+                .orElse(null);
+    }
 }

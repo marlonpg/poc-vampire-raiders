@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS world_items (
   item_template_id INT NOT NULL,
   x FLOAT NOT NULL,
   y FLOAT NOT NULL,
+  quantity INT DEFAULT 1,
   spawned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   claimed_by INT,
   claimed_at TIMESTAMP NULL,
@@ -94,6 +95,7 @@ CREATE TABLE IF NOT EXISTS inventory (
   world_item_id BIGINT NOT NULL,
   slot_x INT DEFAULT 0,
   slot_y INT DEFAULT 0,
+  quantity INT DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
   FOREIGN KEY (world_item_id) REFERENCES world_items(id) ON DELETE CASCADE,
@@ -154,7 +156,7 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 ('Health Potion', 'consumable', 0, 0, 1.0, 200.0, 'common', 'Restores 50 health', TRUE),
 ('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Increase item in 1 level', FALSE),
 ('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Add or Modify mods from items', FALSE),
-('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', FALSE);
+('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', TRUE);
 
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
