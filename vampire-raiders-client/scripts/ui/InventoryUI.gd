@@ -131,6 +131,12 @@ func _on_inventory_received(data: Dictionary):
 	for slot_type in equipped:
 		equipped_items[slot_type] = equipped[slot_type]
 		_update_equipment_slot_display(slot_type)
+	
+	# Clear any equipped slots that are NOT in the new equipped data
+	for slot_type in equipped_items:
+		if not equipped.has(slot_type) or equipped[slot_type] == null:
+			equipped_items[slot_type] = null
+			_update_equipment_slot_display(slot_type)
 
 func _place_item_at(item_data: Dictionary, grid_index: int):
 	"""Place an item in the grid"""
