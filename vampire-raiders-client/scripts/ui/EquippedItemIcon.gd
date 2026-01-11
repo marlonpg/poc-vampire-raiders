@@ -39,6 +39,12 @@ func gui_input(event: InputEvent) -> void:
 		if not mouse_in_rect:
 			return
 		
+		# Handle double-click to unequip
+		if mbe.button_index == MOUSE_BUTTON_LEFT and mbe.double_click:
+			if parent_inventory_ui and parent_inventory_ui.has_method("_unequip_item_to_inventory"):
+				parent_inventory_ui._unequip_item_to_inventory(slot_type)
+			return
+		
 		# Handle drag for single clicks
 		if mbe.button_index == MOUSE_BUTTON_LEFT:
 			if mbe.pressed:
@@ -57,9 +63,11 @@ func gui_input(event: InputEvent) -> void:
 						
 						for i in range(inventory_grid.get_child_count()):
 							var cell = inventory_grid.get_child(i)
-							if cell and cell.get_global_rect().has_point(mouse_pos):
+							if cell and is_instance_valid(cell) and cell.get_global_rect().has_point(mouse_pos):
 								inventory_cell_index = i
 								break
+						
+						print("[EQUIPPED_DRAG] Released at cell index: ", inventory_cell_index, " mouse: ", mouse_pos)
 						
 						if inventory_cell_index >= 0:
 							# Released over inventory - move item back to inventory

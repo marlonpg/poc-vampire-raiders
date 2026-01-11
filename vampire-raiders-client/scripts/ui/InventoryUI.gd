@@ -108,8 +108,20 @@ func _on_inventory_received(data: Dictionary):
 	
 	_clear_grid()
 	
-	# Load inventory items
+	# Build a set of equipped inventory IDs to skip them in the grid
+	var equipped_inv_ids = {}
+	for slot_type in equipped:
+		var item = equipped[slot_type]
+		if item and item.has("inventory_id"):
+			equipped_inv_ids[item.get("inventory_id")] = true
+	
+	# Load inventory items (but skip equipped ones)
 	for item_data in items:
+		var inv_id = item_data.get("inventory_id")
+		# Skip this item if it's equipped
+		if equipped_inv_ids.has(inv_id):
+			continue
+		
 		var slot_x = item_data.get("slot_x", 0)
 		var slot_y = item_data.get("slot_y", 0)
 		var index = slot_y * GRID_COLS + slot_x
@@ -379,8 +391,12 @@ func _update_equipment_slot_display(slot_type: String):
 	if not slot_panel:
 		return
 	
-	# Clear existing item display - use queue_free() to avoid freeing locked objects
+	# Clear existing item display safely
+	var children_to_remove = []
 	for child in slot_panel.get_children():
+		children_to_remove.append(child)
+	for child in children_to_remove:
+		slot_panel.remove_child(child)
 		child.queue_free()
 	
 	# If slot is empty, just show empty slot
