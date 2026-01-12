@@ -254,6 +254,11 @@ public class CombatSystem {
             Logger.info("DEATH DROP (inventory): player=" + playerId + ", worldItemId=" + worldItemId +
                     ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);
         }
+        
+        // IMPORTANT: Refresh the player's cached weapon/armor stats after dropping items
+        // This ensures the server-side damage calculation reflects the loss of equipment
+        player.refreshEquippedItemsCache();
+        Logger.info("DEATH: Refreshed player equipment cache after dropping all items");
     }
 
     /**

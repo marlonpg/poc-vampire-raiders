@@ -6,6 +6,7 @@ var parent_inventory_ui: Node = null
 var last_click_time: float = 0.0
 var click_count: int = 0
 var double_click_timeout: float = 0.3
+var quantity_label: Label = null
 
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -13,6 +14,16 @@ func _ready():
 	tooltip_text = tooltip
 	# Ensure tooltip is visible
 	focus_mode = Control.FOCUS_ALL
+	
+	# Debug: print item data
+	var is_stackable = item_data.get("stackable", false)
+	var quantity = item_data.get("quantity", 1)
+	print("ItemIcon ready - Name: %s, Stackable: %s, Quantity: %d" % [item_data.get("name", "Unknown"), is_stackable, quantity])
+	
+	# Create quantity label in top right corner (deferred to allow layout)
+	if is_stackable and quantity > 1:
+		print("  -> Will show quantity label")
+		call_deferred("_update_quantity_display")
 
 func _input(event: InputEvent) -> void:
 	# Only process if event is a mouse button or touch event
@@ -90,3 +101,29 @@ func gui_input(event: InputEvent) -> void:
 				click_count = 0
 				get_tree().root.set_input_as_handled()
 				return
+
+func _update_quantity_display() -> void:
+	# Remove old label if it exists
+	if quantity_label != null:
+		quantity_label.queue_free()
+		quantity_label = null
+	
+	# Only show quantity for stackable items with quantity > 1
+	if not item_data.get("stackable", false) or item_data.get("quantity", 1) <= 1:
+		return
+	
+	# Create new label for quantity
+	quantity_label = Label.new()
+	quantity_label.text = str(item_data.get("quantity", 1))
+	quantity_label.add_theme_font_size_override("font_size", 16)
+	quantity_label.add_theme_color_override("font_color", Color.WHITE)
+	
+	# Position in top right corner (46x46 item size, so position at 30, 0)
+	quantity_label.position = Vector2(28, -2)
+	quantity_label.size = Vector2(18, 18)
+	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	quantity_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Add to the item icon
+	add_child(quantity_label)

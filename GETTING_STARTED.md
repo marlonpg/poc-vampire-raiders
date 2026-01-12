@@ -46,6 +46,10 @@ That means the server is ready! (Takes ~1-2 minutes first time)
 
 🎮 **You're in!**
 
+#### Network mode (default)
+- Inputs use UDP by default for lower latency; reliable actions (auth, inventory, equip/drop) stay on TCP.
+- If you need to force TCP-only (e.g., debugging or a network blocks UDP), add the flag `--tcp-only` to the Godot run args.
+
 ---
 
 ## 🎮 Gameplay

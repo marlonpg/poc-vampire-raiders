@@ -28,6 +28,7 @@
 - [x] Convert global helpers to autoload singletons (e.g., `GlobalAuth`, event bus, config)
 - [x] Ensure damage numbers live under `scenes/ui/` with script in `scripts/ui/`
 - [x] Centralize networking scripts under `scripts/network/` (bootstrap, network_manager, udp client)
+- [x] Add UDP transport toggle via CLI (`--udp` / `--net=udp`) to run experimental path
 - [ ] Group combat/inventory logic under `scripts/systems/` (CombatSystem, loot, equipment)
 - [ ] Move data resources (items, weapons, loot tables) into `resources/`
 - [ ] Consolidate themes into `themes/` and ensure UI scenes reference them
@@ -47,6 +48,7 @@
 - ✅ Updated all scene navigation paths (change_scene_to_file)
 - ✅ Fixed DamageNumber color display (player damage now shows orange)
 - ✅ Verified all resource paths work correctly
+- ✅ Added CLI flag to start experimental UDP client path (default remains TCP)
 
 ## Current Inventory (poc-vampire-raiders-multiplayer)
 - Scenes (root): Bullet, Enemy, InventoryUI, LoginScreen, MainMenu, Player, RegisterScreen, ResultScreen, World, WorldItem

@@ -216,6 +216,7 @@ func _update_world_items(items_data: Array):
 				var node = world_item_scene.instantiate()
 				node.item_id = item_id
 				node.item_name = item_data.get("name", "Item")
+				node.quantity = item_data.get("quantity", 1)
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
 				node.connect("input_event", Callable(self, "_on_world_item_input").bind(item_id))
 				add_child(node)
@@ -225,6 +226,7 @@ func _update_world_items(items_data: Array):
 			if is_instance_valid(node):
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
 				node.set_name_and_color(item_data.get("name", "Item"))
+				node.set_quantity(item_data.get("quantity", 1))
 
 	# Remove items that disappeared server-side (picked up)
 	var to_remove := []
@@ -394,11 +396,7 @@ func _process(delta):
 		var should_send = (input_dir != last_input_dir) or (input_send_timer >= input_send_interval)
 		
 		if should_send:
-			net_manager.send_json({
-				"type": "player_input",
-				"dir_x": input_dir.x,
-				"dir_y": input_dir.y
-			})
+			net_manager.send_player_input(input_dir.x, input_dir.y)
 			last_input_dir = input_dir
 			input_send_timer = 0.0
 

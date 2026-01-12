@@ -30,7 +30,7 @@ public class InventoryRepository {
     }
 
     public static List<Map<String, Object>> getInventoryForPlayer(int playerId) {
-        String sql = "SELECT inv.id AS inventory_id, inv.slot_x, inv.slot_y, " +
+        String sql = "SELECT inv.id AS inventory_id, inv.slot_x, inv.slot_y, inv.quantity, " +
                 "wi.id AS world_item_id, wi.item_template_id, it.name, it.type, it.damage, it.defense, it.rarity, it.stackable " +
                 "FROM inventory inv " +
                 "JOIN world_items wi ON inv.world_item_id = wi.id " +
@@ -47,6 +47,7 @@ public class InventoryRepository {
                     row.put("inventory_id", rs.getLong("inventory_id"));
                     row.put("slot_x", rs.getInt("slot_x"));
                     row.put("slot_y", rs.getInt("slot_y"));
+                    row.put("quantity", rs.getInt("quantity"));
                     row.put("world_item_id", rs.getLong("world_item_id"));
                     row.put("item_template_id", rs.getInt("item_template_id"));
                     row.put("name", rs.getString("name"));
@@ -106,9 +107,60 @@ public class InventoryRepository {
         return null;
     }
 
+    public static Long findExistingStackableItemTemplate(int playerId, int itemTemplateId) {
+        String sql = "SELECT inv.id FROM inventory inv " +
+                "JOIN world_items wi ON inv.world_item_id = wi.id " +
+                "JOIN item_templates it ON wi.item_template_id = it.id " +
+                "WHERE inv.player_id = ? AND wi.item_template_id = ? AND it.stackable = TRUE LIMIT 1";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, playerId);
+            stmt.setInt(2, itemTemplateId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error("Failed to find existing stackable item: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public static boolean incrementItemQuantity(long inventoryId) {
+        String sql = "UPDATE inventory SET quantity = quantity + 1 WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, inventoryId);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            Logger.error("Failed to increment item quantity: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean decrementItemQuantity(long inventoryId) {
+        String sql = "UPDATE inventory SET quantity = quantity - 1 WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, inventoryId);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            Logger.error("Failed to decrement item quantity: " + e.getMessage());
+            return false;
+        }
+    }
+
     public static int[] findNextAvailableSlot(int playerId, int gridCols, int gridRows) {
-        // Fetch all occupied slots
-        String sql = "SELECT slot_x, slot_y FROM inventory WHERE player_id = ? ORDER BY slot_y, slot_x";
+        // Fetch all occupied slots, EXCLUDING equipped items
+        // Equipped items remain in inventory table but their slots should be available for new items
+        String sql = "SELECT i.slot_x, i.slot_y FROM inventory i " +
+                     "LEFT JOIN equipped_items e ON e.player_id = i.player_id " +
+                     "AND (e.weapon = i.id OR e.helmet = i.id OR e.armor = i.id OR e.boots = i.id) " +
+                     "WHERE i.player_id = ? AND e.player_id IS NULL " +
+                     "ORDER BY i.slot_y, i.slot_x";
         java.util.Set<String> occupied = new java.util.HashSet<>();
         
         try (Connection conn = DatabaseConnection.getConnection();

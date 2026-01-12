@@ -11,17 +11,21 @@
 - Validate bounds (stay within world limits) before applying movement.
 
 ## 3) Authentication / authorization
-- Add a lightweight token per session (pre-shared for now; later JWT/OAuth if needed).
-- Bind token to peer_id; disconnect on mismatch.
-- Consider simple replay protection (nonce or short-lived tokens) if running over WAN.
+- Implemented: per-session UDP token generated on login (UUID), bound to `peer_id` and stored server-side.
+- Implemented: UDP `register_udp` and `player_input` must include `{ peer_id, token }`; server validates before applying input.
+- Planned: rotate token on reconnect or interval; invalidate on disconnect.
+- Planned: simple replay protection (nonce/sequence) and short token TTL if running over WAN.
 
 ## 4) Transport security
-- For LAN dev: optional; for WAN/hostile networks: wrap in TLS (Stunnel/NGINX sidecar or native TLS if available).
+- For LAN dev: optional; for WAN/hostile networks: wrap TCP in TLS (stunnel/NGINX sidecar or native TLS) or use QUIC/DTLS/ENet.
 - If staying TCP+JSON, terminate TLS at a proxy to avoid code churn.
 - Pin server certificate fingerprint on clients to reduce MITM risk.
 
+## 5) Integrity and replay protection (planned)
+- Add `seq` per client and drop out-of-order/duplicate UDP inputs beyond a small window.
+- Add lightweight HMAC (e.g., HMAC-SHA256) over UDP payload using the session token as key to detect tampering.
+
 ## Optional extras
-- Integrity: hash/sequence numbers on messages to detect tampering or replays.
 - Observability: per-client rate/latency/error metrics with alerts.
 - Anti-cheat heuristics: flag outlier DPS/movement for review.
 
