@@ -161,7 +161,7 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
-('Spider', 1, 30, 3, 8, 1.0, 120.0, 1.0, 5),
+('Spider', 1, 30, 3, 8, 1.0, 70.0, 1.0, 5),
 ('Worm', 2, 90, 9, 16, 0.8, 100.0, 0.8, 15),
 ('Wild Dog', 3, 270, 27, 16, 1.5, 150.0, 0.3, 200),
 ('Goblin', 4, 300, 20, 32, 2.0, 100.0, 2.0, 300)

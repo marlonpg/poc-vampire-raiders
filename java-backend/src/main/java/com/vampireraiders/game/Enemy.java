@@ -21,6 +21,14 @@ public class Enemy {
     private long lastAttackTime = 0;  // Track when enemy last attacked
     private long deathTime = -1;  // Track when enemy died (for respawn)
     private static final long RESPAWN_DELAY_MS = 10000;  // 30 seconds
+    
+    // Telegraph attack system
+    public enum AttackState { IDLE, TELEGRAPHING, ATTACKING }
+    private AttackState attackState = AttackState.IDLE;
+    private long telegraphStartTime = 0;
+    private static final long TELEGRAPH_DURATION_MS = 3000;  // 1 second telegraph
+    private float telegraphTargetX = 0;  // Position where attack will happen
+    private float telegraphTargetY = 0;
     private int spawnLevel;  // Track which level zone this enemy spawns in
     private float originalSpawnX;  // Original spawn position for respawn
     private float originalSpawnY;
@@ -48,6 +56,11 @@ public class Enemy {
 
     public void update(float deltaTime, Player targetPlayer) {
         if (targetPlayer == null || !targetPlayer.isAlive()) return;
+        
+        // Don't move while telegraphing an attack
+        if (attackState == AttackState.TELEGRAPHING) {
+            return;
+        }
 
         // Calculate distance to player
         float dx = targetPlayer.getX() - x;
@@ -104,6 +117,8 @@ public class Enemy {
         this.deathTime = -1;
         this.lastAttackTime = 0;
         this.spawnTime = System.currentTimeMillis();
+        this.attackState = AttackState.IDLE;
+        this.telegraphStartTime = 0;
         // Position will be updated by SpawnerSystem using setSpawnLevel
     }
 
@@ -151,4 +166,33 @@ public class Enemy {
     public int getLevel() { return level; }
     public String getTemplateName() { return templateName; }
     public long getSpawnTime() { return spawnTime; }
+    
+    // Telegraph attack getters and setters
+    public AttackState getAttackState() { return attackState; }
+    public float getTelegraphTargetX() { return telegraphTargetX; }
+    public float getTelegraphTargetY() { return telegraphTargetY; }
+    public long getTelegraphStartTime() { return telegraphStartTime; }
+    
+    public void startTelegraph(float targetX, float targetY) {
+        if (attackState == AttackState.IDLE && canAttack()) {
+            attackState = AttackState.TELEGRAPHING;
+            telegraphStartTime = System.currentTimeMillis();
+            telegraphTargetX = targetX;
+            telegraphTargetY = targetY;
+        }
+    }
+    
+    public boolean isTelegraphExpired() {
+        return attackState == AttackState.TELEGRAPHING && 
+               (System.currentTimeMillis() - telegraphStartTime >= TELEGRAPH_DURATION_MS);
+    }
+    
+    public void resolveTelegraph() {
+        attackState = AttackState.ATTACKING;
+    }
+    
+    public void endAttack() {
+        attackState = AttackState.IDLE;
+        recordAttack();
+    }
 }

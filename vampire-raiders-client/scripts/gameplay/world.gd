@@ -291,6 +291,9 @@ func _update_enemies(enemies_data: Array):
 			enemy.position = Vector2(enemy_data.get("x", 0), enemy_data.get("y", 0))
 			enemy.health = enemy_data.get("health", enemy.max_health)
 			enemy.max_health = enemy_data.get("max_health", 30)
+			
+			# Update telegraph attack state
+			enemy.update_from_server(enemy_data)
 	
 	# Remove enemies that no longer exist on server
 	var to_remove = []

@@ -92,7 +92,7 @@ func _apply_name_style() -> void:
 func _update_name_bg() -> void:
 	if name_bg == null or label == null:
 		return
-	# Size background to content size (no padding)
+	# Size background to content siaze (no padding)
 	var content = label.get_minimum_size()
 	if content == Vector2.ZERO:
 		content = label.size

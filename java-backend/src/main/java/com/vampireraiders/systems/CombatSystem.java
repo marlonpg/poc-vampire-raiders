@@ -41,19 +41,27 @@ public class CombatSystem {
                 float distance = calculateDistance(player.getX(), player.getY(), 
                                                  enemy.getX(), enemy.getY());
 
-                if (distance < COLLISION_DISTANCE) {
-                    // Enemy damages player with defense reduction (only if enemy can attack)
-                    if (enemy.canAttack()) {
-                        // Skip damage if player is inside safe zone
-                        if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
-                            continue;
-                        }
+                // Skip damage if player is inside safe zone
+                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
+                    // Only cancel attack if not already telegraphing (let telegraph complete)
+                    if (enemy.getAttackState() != Enemy.AttackState.TELEGRAPHING) {
+                        enemy.endAttack();
+                    }
+                    continue;
+                }
+                
+                // If enemy is telegraphing, check if it's time to apply damage
+                if (enemy.isTelegraphExpired()) {
+                    // Check if player is still in range at time of damage
+                    float currentDistance = calculateDistance(player.getX(), player.getY(), 
+                                                             enemy.getX(), enemy.getY());
+                    if (currentDistance < COLLISION_DISTANCE) {
+                        // Apply damage
                         int enemyDamage = enemy.getDamage();
                         int playerDefense = calculatePlayerDefense(player);
                         int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
                         player.takeDamage(effectiveDamage);
-                        enemy.recordAttack();  // Update enemy's last attack time
-                        Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage (base: " + enemyDamage + ", defense: " + playerDefense + ")");
+                        Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage from telegraph attack (base: " + enemyDamage + ", defense: " + playerDefense + ")");
 
                         // Broadcast damage event for client-side visual feedback
                         if (stateSync != null) {
@@ -68,6 +76,20 @@ public class CombatSystem {
                             respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
                         }
                     }
+                    enemy.endAttack();  // Reset to IDLE for next attack
+                }
+
+                if (distance < COLLISION_DISTANCE) {
+                    // Start telegraph when player gets close
+                    if (enemy.getAttackState() == Enemy.AttackState.IDLE) {
+                        enemy.startTelegraph(player.getX(), player.getY());
+                    }
+                } else {
+                    // Out of range - don't cancel if already telegraphing (let it complete)
+                    if (enemy.getAttackState() == Enemy.AttackState.IDLE) {
+                        // Nothing to cancel
+                    }
+                    // If TELEGRAPHING, let it finish naturally
                 }
             }
         }
