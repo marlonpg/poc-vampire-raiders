@@ -26,7 +26,7 @@ public class Enemy {
     public enum AttackState { IDLE, TELEGRAPHING, ATTACKING }
     private AttackState attackState = AttackState.IDLE;
     private long telegraphStartTime = 0;
-    private static final long TELEGRAPH_DURATION_MS = 3000;  // 1 second telegraph
+    private static final long TELEGRAPH_DURATION_MS = 2000;  // 1 second telegraph
     private float telegraphTargetX = 0;  // Position where attack will happen
     private float telegraphTargetY = 0;
     private int spawnLevel;  // Track which level zone this enemy spawns in

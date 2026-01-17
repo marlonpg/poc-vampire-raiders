@@ -8,13 +8,14 @@ var max_health := 50
 var level := 1
 
 # Telegraph attack visualization
-var telegraph_rect: ColorRect = null
+var telegraph_circle: Node2D = null
 var attack_state: String = "IDLE"  # IDLE, TELEGRAPHING, ATTACKING
 var telegraph_target_x: float = 0
 var telegraph_target_y: float = 0
 var telegraph_start_time: int = 0
 var telegraph_duration_ms: int = 1000
-var telegraph_size: int = 60  # Size of the warning square
+var telegraph_radius: int = 64  # Circle radius
+var show_telegraph: bool = false
 
 # Enemy type colors
 const ENEMY_COLORS = {
@@ -31,26 +32,17 @@ func _ready():
 	_create_telegraph_visual()
 
 func _create_telegraph_visual() -> void:
-	if telegraph_rect == null:
-		telegraph_rect = ColorRect.new()
-		telegraph_rect.color = TELEGRAPH_COLOR
-		telegraph_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		telegraph_rect.z_index = 10  # In front of enemy
-		add_child(telegraph_rect)
-		telegraph_rect.hide()
+	if telegraph_circle == null:
+		telegraph_circle = Node2D.new()
+		telegraph_circle.z_index = 10  # In front of enemy
+		add_child(telegraph_circle)
 
 func _process(_delta):
-	# Update telegraph position and visibility
-	if telegraph_rect != null:
-		if health > 0 and attack_state == "TELEGRAPHING":
-			# Convert world coordinates to local coordinates (relative to enemy position)
-			var local_x = telegraph_target_x - position.x
-			var local_y = telegraph_target_y - position.y
-			telegraph_rect.position = Vector2(local_x - telegraph_size / 2, local_y - telegraph_size / 2)
-			telegraph_rect.size = Vector2(telegraph_size, telegraph_size)
-			telegraph_rect.show()
-		else:
-			telegraph_rect.hide()
+	# Update telegraph visibility flag
+	if health > 0 and attack_state == "TELEGRAPHING":
+		show_telegraph = true
+	else:
+		show_telegraph = false
 	
 	queue_redraw()
 
@@ -68,6 +60,10 @@ func take_damage(amount: int) -> void:
 	print("[ENEMY] %s took %d damage (health: %d)" % [name, amount, health])
 
 func _draw():
+	# Draw telegraph circle when active (behind enemy)
+	if show_telegraph:
+		draw_circle(Vector2.ZERO, telegraph_radius, TELEGRAPH_COLOR)
+	
 	# Get color based on template name
 	var color = ENEMY_COLORS.get(template_name, Color.RED)
 	

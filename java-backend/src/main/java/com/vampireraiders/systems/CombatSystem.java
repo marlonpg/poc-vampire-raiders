@@ -16,6 +16,9 @@ import java.util.Random;
 
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
+    // Telegraph hitbox dimensions (width side-to-side, depth forward from enemy)
+    private static final float TELEGRAPH_WIDTH = 96f;
+    private static final float TELEGRAPH_DEPTH = 48f;
     private final ItemDropService itemDropService = new ItemDropService();
     private StateSync stateSync;
 
@@ -52,10 +55,30 @@ public class CombatSystem {
                 
                 // If enemy is telegraphing, check if it's time to apply damage
                 if (enemy.isTelegraphExpired()) {
-                    // Check if player is still in range at time of damage
-                    float currentDistance = calculateDistance(player.getX(), player.getY(), 
-                                                             enemy.getX(), enemy.getY());
-                    if (currentDistance < COLLISION_DISTANCE) {
+                    // Oriented rectangle hitbox in enemy forward direction
+                    float dirX = enemy.getTelegraphTargetX() - enemy.getX();
+                    float dirY = enemy.getTelegraphTargetY() - enemy.getY();
+                    float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+                    if (len == 0) {
+                        dirX = 1;
+                        dirY = 0;
+                        len = 1;
+                    }
+                    dirX /= len;
+                    dirY /= len;
+                    // Perpendicular vector
+                    float perpX = -dirY;
+                    float perpY = dirX;
+
+                    float relX = player.getX() - enemy.getX();
+                    float relY = player.getY() - enemy.getY();
+
+                    float forward = relX * dirX + relY * dirY;       // projection on forward
+                    float side = relX * perpX + relY * perpY;         // projection on side
+
+                    boolean inside = forward >= 0 && forward <= TELEGRAPH_DEPTH && Math.abs(side) <= TELEGRAPH_WIDTH / 2f;
+
+                    if (inside) {
                         // Apply damage
                         int enemyDamage = enemy.getDamage();
                         int playerDefense = calculatePlayerDefense(player);
