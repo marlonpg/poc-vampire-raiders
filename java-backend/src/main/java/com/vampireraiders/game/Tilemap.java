@@ -1,5 +1,7 @@
 package com.vampireraiders.game;
 
+import com.vampireraiders.util.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -131,12 +133,13 @@ public class Tilemap {
         
         if (count == 0) {
             // Fallback to map center
-            return new float[] {
-                (mapWidth * TILE_SIZE) / 2.0f,
-                (mapHeight * TILE_SIZE) / 2.0f
-            };
+            float centerX = (mapWidth * TILE_SIZE) / 2.0f;
+            float centerY = (mapHeight * TILE_SIZE) / 2.0f;
+            Logger.warn("No safe zone tiles found! Falling back to map center: (" + centerX + ", " + centerY + ")");
+            return new float[] { centerX, centerY };
         }
         
+        Logger.info("Safe zone center calculated from " + count + " tiles: (" + (sumX / count) + ", " + (sumY / count) + ")");
         return new float[] { sumX / count, sumY / count };
     }
     

@@ -50,6 +50,13 @@ public class StateSync {
             enemyObj.addProperty("type", enemy.getTemplateName());
             enemyObj.addProperty("level", enemy.getLevel());
             enemyObj.addProperty("alive", enemy.isAlive());
+            
+            // Telegraph attack data
+            enemyObj.addProperty("attack_state", enemy.getAttackState().toString());
+            enemyObj.addProperty("telegraph_target_x", enemy.getTelegraphTargetX());
+            enemyObj.addProperty("telegraph_target_y", enemy.getTelegraphTargetY());
+            enemyObj.addProperty("telegraph_start_time", enemy.getTelegraphStartTime());
+            
             enemiesArray.add(enemyObj);
         }
         message.add("enemies", enemiesArray);

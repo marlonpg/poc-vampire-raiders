@@ -35,6 +35,9 @@ func _ready():
 	_position_name_above_item()
 
 func _load_sprite_if_available() -> void:
+	# Avoid reloading if we already have the sprite
+	if sprite_rect != null:
+		return
 	# Try to load sprite based on item name (convert to snake_case)
 	var item_name_snake = item_name.to_lower().replace(" ", "-")
 	var sprite_path = "res://assets/items/%s.png" % item_name_snake
@@ -89,7 +92,7 @@ func _apply_name_style() -> void:
 func _update_name_bg() -> void:
 	if name_bg == null or label == null:
 		return
-	# Size background to content size (no padding)
+	# Size background to content siaze (no padding)
 	var content = label.get_minimum_size()
 	if content == Vector2.ZERO:
 		content = label.size
@@ -107,6 +110,9 @@ func _position_name_above_item() -> void:
 	_update_name_bg()
 
 func set_name_and_color(name: String):
+	if item_name == name:
+		# Name unchanged; skip re-applying styles and sprite load
+		return
 	item_name = name
 	label.text = name
 	_apply_name_style()

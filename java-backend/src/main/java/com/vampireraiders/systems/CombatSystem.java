@@ -16,6 +16,9 @@ import java.util.Random;
 
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
+    // Telegraph hitbox dimensions (width side-to-side, depth forward from enemy)
+    private static final float TELEGRAPH_WIDTH = 96f;
+    private static final float TELEGRAPH_DEPTH = 48f;
     private final ItemDropService itemDropService = new ItemDropService();
     private StateSync stateSync;
 
@@ -41,19 +44,47 @@ public class CombatSystem {
                 float distance = calculateDistance(player.getX(), player.getY(), 
                                                  enemy.getX(), enemy.getY());
 
-                if (distance < COLLISION_DISTANCE) {
-                    // Enemy damages player with defense reduction (only if enemy can attack)
-                    if (enemy.canAttack()) {
-                        // Skip damage if player is inside safe zone
-                        if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
-                            continue;
-                        }
+                // Skip damage if player is inside safe zone
+                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
+                    // Only cancel attack if not already telegraphing (let telegraph complete)
+                    if (enemy.getAttackState() != Enemy.AttackState.TELEGRAPHING) {
+                        enemy.endAttack();
+                    }
+                    continue;
+                }
+                
+                // If enemy is telegraphing, check if it's time to apply damage
+                if (enemy.isTelegraphExpired()) {
+                    // Oriented rectangle hitbox in enemy forward direction
+                    float dirX = enemy.getTelegraphTargetX() - enemy.getX();
+                    float dirY = enemy.getTelegraphTargetY() - enemy.getY();
+                    float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+                    if (len == 0) {
+                        dirX = 1;
+                        dirY = 0;
+                        len = 1;
+                    }
+                    dirX /= len;
+                    dirY /= len;
+                    // Perpendicular vector
+                    float perpX = -dirY;
+                    float perpY = dirX;
+
+                    float relX = player.getX() - enemy.getX();
+                    float relY = player.getY() - enemy.getY();
+
+                    float forward = relX * dirX + relY * dirY;       // projection on forward
+                    float side = relX * perpX + relY * perpY;         // projection on side
+
+                    boolean inside = forward >= 0 && forward <= TELEGRAPH_DEPTH && Math.abs(side) <= TELEGRAPH_WIDTH / 2f;
+
+                    if (inside) {
+                        // Apply damage
                         int enemyDamage = enemy.getDamage();
                         int playerDefense = calculatePlayerDefense(player);
                         int effectiveDamage = Math.max(1, enemyDamage - playerDefense);
                         player.takeDamage(effectiveDamage);
-                        enemy.recordAttack();  // Update enemy's last attack time
-                        Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage (base: " + enemyDamage + ", defense: " + playerDefense + ")");
+                        Logger.info("Player " + player.getUsername() + " took " + effectiveDamage + " damage from telegraph attack (base: " + enemyDamage + ", defense: " + playerDefense + ")");
 
                         // Broadcast damage event for client-side visual feedback
                         if (stateSync != null) {
@@ -68,6 +99,20 @@ public class CombatSystem {
                             respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
                         }
                     }
+                    enemy.endAttack();  // Reset to IDLE for next attack
+                }
+
+                if (distance < COLLISION_DISTANCE) {
+                    // Start telegraph when player gets close
+                    if (enemy.getAttackState() == Enemy.AttackState.IDLE) {
+                        enemy.startTelegraph(player.getX(), player.getY());
+                    }
+                } else {
+                    // Out of range - don't cancel if already telegraphing (let it complete)
+                    if (enemy.getAttackState() == Enemy.AttackState.IDLE) {
+                        // Nothing to cancel
+                    }
+                    // If TELEGRAPHING, let it finish naturally
                 }
             }
         }
