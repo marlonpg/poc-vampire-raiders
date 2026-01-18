@@ -8,11 +8,7 @@ import com.vampireraiders.database.InventoryRepository;
 import com.vampireraiders.database.ItemTemplateRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.database.WorldItemRepository;
-import com.vampireraiders.game.GameState;
-import com.vampireraiders.game.GameWorld;
-import com.vampireraiders.game.Player;
-import com.vampireraiders.game.Tilemap;
-import com.vampireraiders.game.WorldItem;
+import com.vampireraiders.game.*;
 import com.vampireraiders.util.Logger;
 
 import java.io.*;
@@ -28,7 +24,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class NetworkManager {
     private final int port;
-    private final GameWorld gameWorld;
+    private MapManager mapManager;  // Reference to map manager
     private final Map<Integer, GameClient> clients = new ConcurrentHashMap<>();
     private final List<NetworkEventListener> listeners = new ArrayList<>();
     private ServerSocket serverSocket;
@@ -47,9 +43,15 @@ public class NetworkManager {
     private static final int UDP_INPUT_RATE = 30; // per second
     private static final int UDP_BUCKET_CAPACITY = 60; // burst allowance
 
+    @Deprecated
     public NetworkManager(int port, GameWorld gameWorld) {
+        // Legacy constructor for backward compatibility
         this.port = port;
-        this.gameWorld = gameWorld;
+        this.mapManager = null;
+    }
+    
+    public void setMapManager(com.vampireraiders.game.MapManager mapManager) {
+        this.mapManager = mapManager;
     }
 
     public void start() throws IOException {
@@ -187,8 +189,20 @@ public class NetworkManager {
         String username = message.get("username").getAsString();
         String password = message.has("password") ? message.get("password").getAsString() : "pass";
 
-        // Get safe zone center from loaded map
-        Tilemap tilemap = com.vampireraiders.game.GameWorld.getTilemap();
+        // Default map for new players
+        String defaultMapId = "main-map";
+        
+        // Get safe zone center from default map
+        GameWorld defaultMapWorld = mapManager.getGameWorld(defaultMapId);
+        if (defaultMapWorld == null) {
+            Logger.error("Default map " + defaultMapId + " not loaded!");
+            return;
+        }
+        
+        Logger.debug("Using map: " + defaultMapId + " - Dimensions: " + 
+            defaultMapWorld.getTilemap().getMapWidth() + "x" + defaultMapWorld.getTilemap().getMapHeight());
+        
+        Tilemap tilemap = defaultMapWorld.getTilemap();
         float[] safeZoneCenter = tilemap.getSafeZoneCenter();
         float safeZoneCenterX = safeZoneCenter[0];
         float safeZoneCenterY = safeZoneCenter[1];
@@ -198,8 +212,9 @@ public class NetworkManager {
         float spawnY = safeZoneCenterY;
         boolean isNewPlayer = false;
         
-        // Always create player with current peer ID
+        // Always create player with current peer ID and default map
         Player player = new Player(client.getPeerId(), username, spawnX, spawnY);
+        player.setCurrentMapId(defaultMapId);
         int databaseId = -1;
 
         // Check if player exists in database and load stats
@@ -231,11 +246,11 @@ public class NetworkManager {
                     // Player was dead, respawn at safe zone with full health
                     player.setHealth(player.getMaxHealth());
                     player.setPosition(safeZoneCenterX, safeZoneCenterY);
-                    Logger.info("Dead player respawned at safe zone: " + username);
+                    Logger.info("Dead player respawned at safe zone: " + username + " at position (" + safeZoneCenterX + ", " + safeZoneCenterY + ")");
                 } else {
                     // Player was alive, spawn at last saved position
                     player.setPosition(dbPlayer.getX(), dbPlayer.getY());
-                    Logger.info("Returning player spawned at last position: " + username + " (" + dbPlayer.getX() + ", " + dbPlayer.getY() + ")");
+                    Logger.info("Returning player spawned at last position: " + username + " at position (" + dbPlayer.getX() + ", " + dbPlayer.getY() + ")");
                 }
                 
                 Logger.info("Existing player found: " + username + " (dbId=" + databaseId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
@@ -253,7 +268,7 @@ public class NetworkManager {
                 Logger.error("Failed to create new player " + username);
                 return;
             }
-            Logger.info("New player created at safe zone: " + username + " (dbId=" + databaseId + ")");
+            Logger.info("New player created at safe zone: " + username + " (dbId=" + databaseId + ") at position (" + safeZoneCenterX + ", " + safeZoneCenterY + ")");
         }
 
         // Update position for spawn and mark authenticated
@@ -261,10 +276,12 @@ public class NetworkManager {
         client.setPlayer(player);
         client.setAuthenticated(true);
         
-        // Add player to game world
-        gameWorld.getState().addPlayer(client.getPeerId(), player);
+        // Add player to their assigned map's game world
+        defaultMapWorld.getState().addPlayer(client.getPeerId(), player);
         
-        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ", dbId: " + databaseId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
+        Logger.info("Player " + username + " added to map " + defaultMapId + " - Total players in map: " + defaultMapWorld.getState().getPlayerCount());
+        
+        Logger.info("Player joined: " + username + " (PeerID: " + client.getPeerId() + ", dbId: " + databaseId + ", map: " + defaultMapId + ") - Level: " + player.getLevel() + ", XP: " + player.getXP());
 
         // Send acknowledgment back
         JsonObject ack = new JsonObject();
@@ -305,9 +322,15 @@ public class NetworkManager {
         long worldItemId = message.get("world_item_id").getAsLong();
         Logger.info("PICKUP: Client " + client.getPeerId() + " attempting to pick up item " + worldItemId);
         
-        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        Player player = client.getPlayer();
         if (player == null) {
             Logger.warn("PICKUP: Player not found for client " + client.getPeerId());
+            return;
+        }
+        
+        GameWorld gameWorld = mapManager.getGameWorld(player.getCurrentMapId());
+        if (gameWorld == null) {
+            Logger.error("PICKUP: GameWorld not found for map " + player.getCurrentMapId());
             return;
         }
 
@@ -382,7 +405,7 @@ public class NetworkManager {
     }
 
     private void handleGetInventory(GameClient client) {
-        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        Player player = client.getPlayer();
         if (player == null) {
             Logger.warn("GET_INVENTORY: Player not found for peer " + client.getPeerId());
             return;
@@ -453,8 +476,11 @@ public class NetworkManager {
 
     private void handleDropInventoryItem(GameClient client, JsonObject message) {
         if (!message.has("inventory_id")) return;
-        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        Player player = client.getPlayer();
         if (player == null) return;
+        
+        GameWorld gameWorld = mapManager.getGameWorld(player.getCurrentMapId());
+        if (gameWorld == null) return;
         
         long inventoryId = message.get("inventory_id").getAsLong();
         Long worldItemId = InventoryRepository.getWorldItemIdForInventory(inventoryId);
@@ -512,7 +538,7 @@ public class NetworkManager {
     private void handleEquipItem(GameClient client, JsonObject message) {
         if (!message.has("inventory_id") || !message.has("slot_type")) return;
         
-        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        Player player = client.getPlayer();
         if (player == null) return;
         
         int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
@@ -539,7 +565,7 @@ public class NetworkManager {
     private void handleUnequipItem(GameClient client, JsonObject message) {
         if (!message.has("inventory_id") || !message.has("slot_type")) return;
         
-        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        Player player = client.getPlayer();
         if (player == null) return;
         
         int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
@@ -558,8 +584,19 @@ public class NetworkManager {
         if (client != null) {
             // Save player state on disconnect
             if (client.getPlayer() != null) {
-                PlayerRepository.savePlayer(client.getPlayer());
-                Logger.info("Saved player " + client.getPlayer().getUsername() + " on disconnect");
+                Player player = client.getPlayer();
+                PlayerRepository.savePlayer(player);
+                Logger.info("Saved player " + player.getUsername() + " on disconnect");
+                
+                // Remove player from their current map's GameWorld
+                if (mapManager != null) {
+                    String currentMapId = player.getCurrentMapId();
+                    GameWorld gameWorld = mapManager.getGameWorld(currentMapId);
+                    if (gameWorld != null) {
+                        gameWorld.getState().removePlayer(peerId);
+                        Logger.info("Removed player " + player.getUsername() + " from map " + currentMapId);
+                    }
+                }
             }
             notifyClientDisconnected(peerId);
             Logger.info("Client disconnected: PeerID " + peerId);
@@ -609,6 +646,20 @@ public class NetworkManager {
     public void broadcastMessageToAll(String message) {
         for (GameClient client : clients.values()) {
             sendToClient(client, message);
+        }
+    }
+    
+    /**
+     * Broadcast a message only to players in a specific map
+     */
+    public void broadcastMessageToMap(String mapId, String message) {
+        int sentCount = 0;
+        for (GameClient client : clients.values()) {
+            Player player = client.getPlayer();
+            if (player != null && mapId.equals(player.getCurrentMapId())) {
+                sendToClient(client, message);
+                sentCount++;
+            }
         }
     }
 

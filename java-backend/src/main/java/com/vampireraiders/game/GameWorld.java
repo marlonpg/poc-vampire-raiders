@@ -18,6 +18,7 @@ public class GameWorld {
     private final GameState state;
     private final CombatSystem combatSystem;
     private StateSync stateSync;
+    private String mapId = "main-map";  // Track which map this GameWorld represents
     private long lastPlayerSaveTime = 0;
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
 
@@ -30,6 +31,7 @@ public class GameWorld {
         if (mapFile == null || mapFile.isEmpty()) {
             mapFile = "main-map.txt"; // Default map
         }
+        Logger.info("[MAP-LOADING] GameWorld constructor loading map file: " + mapFile);
         tilemap = MapLoader.loadMap(mapFile);
         WORLD_WIDTH = tilemap.getMapWidth() * GRID_SIZE;
         WORLD_HEIGHT = tilemap.getMapHeight() * GRID_SIZE;
@@ -41,6 +43,10 @@ public class GameWorld {
 
     public void setStateSync(StateSync stateSync) {
         this.stateSync = stateSync;
+    }
+    
+    public void setMapId(String mapId) {
+        this.mapId = mapId;
     }
 
     public void update(float deltaTime) {
@@ -61,11 +67,14 @@ public class GameWorld {
                 float oldX = player.getX();
                 float oldY = player.getY();
                 
+                float velX = player.getVelocityX();
+                float velY = player.getVelocityY();
+                
                 player.update(deltaTime);
                 
                 float newX = player.getX();
                 float newY = player.getY();
-                
+
                 // Check if new position is walkable
                 if (!isWalkable(newX, newY)) {
                     // Revert to old position if blocked
@@ -112,12 +121,11 @@ public class GameWorld {
                     Player shooter = state.getPlayer(bullet.getShooterId());
                     int bulletDamage = calculatePlayerDamage(shooter);
                     int effectiveDamage = Math.max(1, bulletDamage - enemy.getDefense());
-                    System.out.println("[COLLISION] Bullet hit enemy! Base Damage: " + bulletDamage + ", Enemy Defense: " + enemy.getDefense() + ", Effective Damage: " + effectiveDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
                     combatSystem.damageEnemy(enemy, effectiveDamage, state);  // Use CombatSystem to handle damage and XP rewards
                     
                     // Broadcast damage event for client-side visual feedback
                     if (stateSync != null) {
-                        stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
+                        stateSync.broadcastDamageEvent(mapId, enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
                     }
                     
                     state.removeBullet(bullet);

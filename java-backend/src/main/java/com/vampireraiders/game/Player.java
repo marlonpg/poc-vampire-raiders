@@ -8,6 +8,7 @@ public class Player {
     private final int peerId;
     private int databaseId = -1;  // Loaded from database later
     private final String username;
+    private String currentMapId = "main-map";  // Default map
     private float x;
     private float y;
     private int health;
@@ -182,6 +183,14 @@ public class Player {
 
     public void recordAttack() {
         lastAttackTime = System.currentTimeMillis();
+    }
+    
+    public String getCurrentMapId() {
+        return currentMapId;
+    }
+    
+    public void setCurrentMapId(String mapId) {
+        this.currentMapId = mapId;
     }
 }
 

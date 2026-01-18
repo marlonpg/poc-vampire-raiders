@@ -19,7 +19,7 @@ public class SpawnerSystem {
     private final int spawnInterval;
     private long lastSpawnTime;
     private final Random random = new Random();
-    private static final int PERF_TEST_ENEMY_COUNT = 300;
+    private static final int PERF_TEST_ENEMY_COUNT = 100;
     private EnemyTemplate spiderTemplate;
 
     public SpawnerSystem(GameState gameState) {

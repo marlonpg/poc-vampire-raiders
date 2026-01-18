@@ -1,11 +1,9 @@
 package com.vampireraiders;
 
 import com.vampireraiders.config.ServerConfig;
-import com.vampireraiders.game.GameLoop;
-import com.vampireraiders.game.GameWorld;
+import com.vampireraiders.game.MapManager;
 import com.vampireraiders.network.NetworkManager;
 import com.vampireraiders.network.NetworkEventListener;
-import com.vampireraiders.systems.SpawnerSystem;
 import com.vampireraiders.systems.StateSync;
 import com.vampireraiders.util.Logger;
 
@@ -15,22 +13,23 @@ import java.util.Scanner;
 public class VampireRaidersServer implements NetworkEventListener {
     private final ServerConfig config;
     private final NetworkManager networkManager;
-    private final GameWorld gameWorld;
-    private final SpawnerSystem spawnerSystem;
     private final StateSync stateSync;
-    private final GameLoop gameLoop;
-    private Thread gameLoopThread;
+    private final MapManager mapManager;
 
     public VampireRaidersServer() {
         this.config = ServerConfig.getInstance();
-        this.gameWorld = new GameWorld();
-        this.spawnerSystem = new SpawnerSystem(gameWorld.getState());
-        this.networkManager = new NetworkManager(config.getPort(), gameWorld);
+        this.networkManager = new NetworkManager(config.getPort(), null); // GameWorld is now managed per-map
         this.stateSync = new StateSync(networkManager);
-        this.gameWorld.setStateSync(stateSync);  // Set the StateSync reference in GameWorld
-        this.gameLoop = new GameLoop(gameWorld, spawnerSystem, stateSync, config.getTickRate());
+        this.mapManager = new MapManager(stateSync, config.getTickRate());
+        
+        // Connect NetworkManager to MapManager
+        this.networkManager.setMapManager(mapManager);
         
         networkManager.addEventListener(this);
+    }
+    
+    public MapManager getMapManager() {
+        return mapManager;
     }
 
     public void start() throws IOException {
@@ -39,37 +38,21 @@ public class VampireRaidersServer implements NetworkEventListener {
         Logger.info("=================================");
         Logger.info("Starting server on " + config.getHost() + ":" + config.getPort());
 
-        // Spawn initial enemies for performance testing
-        spawnerSystem.spawnInitialEnemiesForPerfTest();
-
+        // Load initial maps
+        Logger.info("Loading maps...");
+        mapManager.loadMap("main-map", "main-map.txt");
+        mapManager.loadMap("dungeon-1", "dungeon-1.txt");
+        
         // Start network manager
         networkManager.start();
-
-        // Start game world
-        gameWorld.start();
-
-        // Start game loop
-        gameLoopThread = new Thread(gameLoop);
-        gameLoopThread.setName("GameLoop");
-        gameLoopThread.start();
 
         Logger.info("Server ready for connections!");
     }
 
     public void stop() {
         Logger.info("Shutting down server...");
-        gameLoop.stop();
+        mapManager.stopAll();
         networkManager.stop();
-        gameWorld.stop();
-
-        try {
-            if (gameLoopThread != null) {
-                gameLoopThread.join(5000);
-            }
-        } catch (InterruptedException e) {
-            Logger.error("Error waiting for game loop thread", e);
-        }
-
         Logger.info("Server stopped");
     }
 
@@ -80,7 +63,8 @@ public class VampireRaidersServer implements NetworkEventListener {
 
     @Override
     public void onClientDisconnected(int peerId) {
-        gameWorld.getState().removePlayer(peerId);
+        // Remove player from all maps (they should only be in one)
+        // For now, we'll let the map's GameWorld handle cleanup
         Logger.info("Client disconnected: PeerID=" + peerId);
     }
 
@@ -109,9 +93,11 @@ public class VampireRaidersServer implements NetworkEventListener {
 
                 switch (command) {
                     case "status":
-                        int players = server.gameWorld.getState().getPlayerCount();
-                        int enemies = server.gameWorld.getState().getEnemyCount();
-                        Logger.info("Status - Players: " + players + ", Enemies: " + enemies);
+                        int totalPlayers = 0;
+                        int totalEnemies = 0;
+                        Logger.info("Active maps: " + server.mapManager.getActiveMapCount());
+                        // TODO: Add detailed status per map
+                        Logger.info("Status - Total players: " + totalPlayers + ", Total enemies: " + totalEnemies);
                         break;
                     case "help":
                         System.out.println("Commands: status, help, stop");

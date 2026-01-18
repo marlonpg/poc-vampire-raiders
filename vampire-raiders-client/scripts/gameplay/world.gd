@@ -162,8 +162,9 @@ func _update_players(players_data: Array) -> void:
 			local_xp = p.get("xp", local_xp)
 			#_log_client("Local player data: Level=%d, XP=%d, HP=%d/%d" % [local_level, local_xp, p.get("health", 100), local_max_health])
 			if player_instance:
-				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
-				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
+				var old_pos = player_instance.position
+				var new_pos = Vector2(p.get("x", 0), p.get("y", 0))
+				player_instance.position = new_pos
 				player_instance.health = p.get("health", 100)
 				# Update attack range from server
 				if player_instance.has_method("update_attack_range"):
@@ -449,6 +450,8 @@ func _show_result_screen():
 func _on_damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2):
 	"""Handle damage event from server"""
 	print("[DAMAGE_EVENT] %s ID:%d took %d damage at (%.0f, %.0f)" % [target_type, target_id, damage, position.x, position.y])
+	print("[DAMAGE_EVENT] damage_number_scene is null: ", damage_number_scene == null)
+	print("[DAMAGE_EVENT] damage_container is valid: ", damage_container != null and is_instance_valid(damage_container))
 	_show_damage_number(position, damage, target_type == "player")
 
 # ------------------------------------------------------------------

@@ -30,7 +30,7 @@ public class CombatSystem {
         this.stateSync = stateSync;
     }
 
-    public void update(GameState state, float deltaTime) {
+    public void update(String mapId, GameState state, float deltaTime) {
         checkPlayerEnemyCollisions(state);
     }
 
@@ -88,7 +88,7 @@ public class CombatSystem {
 
                         // Broadcast damage event for client-side visual feedback
                         if (stateSync != null) {
-                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY());
+                            stateSync.broadcastDamageEvent(player.getCurrentMapId(), player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY());
                         }
 
                         if (!player.isAlive()) {

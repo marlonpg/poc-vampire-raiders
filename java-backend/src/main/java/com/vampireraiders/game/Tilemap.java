@@ -121,12 +121,16 @@ public class Tilemap {
         int count = 0;
         float sumX = 0, sumY = 0;
         
+        Logger.debug("Scanning map for safe zones - dimensions: " + mapWidth + "x" + mapHeight);
         for (int x = 0; x < mapWidth; x++) {
             for (int y = 0; y < mapHeight; y++) {
                 if (tiles[x][y].isSafeZone()) {
                     sumX += (x + 0.5f) * TILE_SIZE;
                     sumY += (y + 0.5f) * TILE_SIZE;
                     count++;
+                    if (count <= 5) {
+                        Logger.debug("Found SAF tile at grid (" + x + ", " + y + ") = pixel (" + ((x + 0.5f) * TILE_SIZE) + ", " + ((y + 0.5f) * TILE_SIZE) + ")");
+                    }
                 }
             }
         }

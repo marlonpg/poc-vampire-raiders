@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.vampireraiders.game.*;
 import com.vampireraiders.network.NetworkManager;
+import com.vampireraiders.util.Logger;
 
 public class StateSync {
     private long lastSyncTime = 0;
@@ -92,7 +93,7 @@ public class StateSync {
         return message;
     }
 
-    public void broadcastGameState(GameState state) {
+    public void broadcastGameState(String mapId, GameState state) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastSyncTime < syncIntervalMs) {
             return; // Skip sync if too soon
@@ -102,19 +103,29 @@ public class StateSync {
 
         JsonObject message = createGameStateMessage(state);
         if (networkManager != null) {
-            networkManager.broadcastMessageToAll(message.toString());
+            // Only send to players in this specific map
+            networkManager.broadcastMessageToMap(mapId, message.toString());
         }
+    }
+    
+    /**
+     * Legacy method for backward compatibility (uses "main-map" by default)
+     */
+    @Deprecated
+    public void broadcastGameState(GameState state) {
+        broadcastGameState("main-map", state);
     }
 
     /**
-     * Broadcast a damage event to all clients for visual feedback
+     * Broadcast a damage event to clients in a specific map for visual feedback
+     * @param mapId - ID of the map where damage occurred
      * @param targetId - ID of damaged entity (enemy id or peer_id for players)
      * @param targetType - "enemy" or "player"
      * @param damage - effective damage dealt
      * @param x - world x position
      * @param y - world y position
      */
-    public void broadcastDamageEvent(int targetId, String targetType, int damage, float x, float y) {
+    public void broadcastDamageEvent(String mapId, int targetId, String targetType, int damage, float x, float y) {
         JsonObject message = new JsonObject();
         message.addProperty("type", "damage_event");
         message.addProperty("target_id", targetId);
@@ -124,7 +135,15 @@ public class StateSync {
         message.addProperty("y", y);
         
         if (networkManager != null) {
-            networkManager.broadcastMessageToAll(message.toString());
+            networkManager.broadcastMessageToMap(mapId, message.toString());
         }
+    }
+    
+    /**
+     * Legacy method - broadcasts to all players (for backward compatibility)
+     */
+    @Deprecated
+    public void broadcastDamageEvent(int targetId, String targetType, int damage, float x, float y) {
+        broadcastDamageEvent("main-map", targetId, targetType, damage, x, y);
     }
 }

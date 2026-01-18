@@ -92,7 +92,7 @@ public class MapLoader {
             }
         }
         
-        Logger.info("Loaded map " + filename + " - Size: " + width + "x" + height);
+        Logger.info("[MAP-LOADING] Loaded map " + filename + " - Size: " + width + "x" + height);
         
         return new Tilemap(tiles, width, height);
     }

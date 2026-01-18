@@ -111,6 +111,7 @@ func _handle_server_message(data: Dictionary):
 			var damage = data.get("damage", 0)
 			var x = data.get("x", 0.0)
 			var y = data.get("y", 0.0)
+			print("[NETWORK] Damage event received: type=%s, id=%d, damage=%d at (%.0f, %.0f)" % [target_type, target_id, damage, x, y])
 			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y))
 		_:
 			pass
