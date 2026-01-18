@@ -7,6 +7,8 @@ public class WorldItem {
     private final float y;
     private Integer claimedBy; // null when unclaimed
     private String templateName; // optional helper for broadcasting
+    private final long spawnedAtMs; // timestamp when item was spawned
+    private static final long ITEM_TTL_MS = 60000; // 60 seconds
 
     public WorldItem(long id, int itemTemplateId, float x, float y, Integer claimedBy) {
         this.id = id;
@@ -14,6 +16,7 @@ public class WorldItem {
         this.x = x;
         this.y = y;
         this.claimedBy = claimedBy;
+        this.spawnedAtMs = System.currentTimeMillis();
     }
 
     public long getId() {
@@ -46,5 +49,9 @@ public class WorldItem {
 
     public void setTemplateName(String templateName) {
         this.templateName = templateName;
+    }
+    
+    public boolean isExpired(long currentTimeMs) {
+        return (currentTimeMs - spawnedAtMs) >= ITEM_TTL_MS;
     }
 }

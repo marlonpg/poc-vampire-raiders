@@ -79,7 +79,7 @@ public class GameWorld {
 
         // Auto-attack: players fire bullets at nearest enemy
         for (Player player : state.getAllPlayers().values()) {
-            if (player.isAlive()) {
+            if (player.isAlive() && !isInSafeZone(player.getX(), player.getY())) {
                 Player nearestEnemy = findNearestPlayer(player.getX(), player.getY());  // Find player to aim at
                 // For now, find nearest enemy instead
                 Enemy target = findNearestEnemyForAttack(player);
@@ -94,9 +94,14 @@ public class GameWorld {
         // Update all enemies
         for (Enemy enemy : state.getAllEnemies()) {
             if (enemy.isAlive()) {
-                // Find nearest player to target
+                // Find nearest player
                 Player nearestPlayer = findNearestPlayer(enemy.getX(), enemy.getY());
-                enemy.update(deltaTime, nearestPlayer);
+                // Get the targeted player if enemy has aggro
+                Player targetedPlayer = null;
+                if (enemy.getTargetPlayerId() >= 0) {
+                    targetedPlayer = state.getPlayer(enemy.getTargetPlayerId());
+                }
+                enemy.update(deltaTime, nearestPlayer, targetedPlayer);
             }
         }
 
@@ -113,6 +118,12 @@ public class GameWorld {
                     int bulletDamage = calculatePlayerDamage(shooter);
                     int effectiveDamage = Math.max(1, bulletDamage - enemy.getDefense());
                     System.out.println("[COLLISION] Bullet hit enemy! Base Damage: " + bulletDamage + ", Enemy Defense: " + enemy.getDefense() + ", Effective Damage: " + effectiveDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
+                    
+                    // Set/update enemy aggro - will switch if this player deals more damage
+                    if (shooter != null) {
+                        enemy.setTargetPlayer(bullet.getShooterId(), effectiveDamage);
+                    }
+                    
                     combatSystem.damageEnemy(enemy, effectiveDamage, state);  // Use CombatSystem to handle damage and XP rewards
                     
                     // Broadcast damage event for client-side visual feedback
@@ -162,6 +173,19 @@ public class GameWorld {
         }
         for (Bullet b : bulletsToRemove) {
             state.removeBullet(b);
+        }
+
+        List<WorldItem> itemsToRemove = new ArrayList<>();
+        for (WorldItem item : state.getWorldItems()) {
+            if (item.isExpired(currentTime)) {
+                itemsToRemove.add(item);
+            }
+        }
+        for (WorldItem item : itemsToRemove) {
+            state.removeWorldItem(item);
+            // Also delete from database
+            com.vampireraiders.database.WorldItemRepository.deleteWorldItem(item.getId());
+            Logger.debug("Removed expired world item id=" + item.getId() + " at (" + item.getX() + "," + item.getY() + ")");
         }
     }
 
