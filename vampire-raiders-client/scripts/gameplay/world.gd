@@ -469,7 +469,6 @@ func _show_damage_number(position: Vector2, damage: int, is_player: bool = false
 		damage_container.add_child(dn)
 	else:
 		add_child(dn)
-	print("[DAMAGE_DISPLAY] Showing %d damage at (%.0f, %.0f) for %s" % [damage, position.x, position.y, "PLAYER" if is_player else "ENEMY"])
 
 # ------------------------------------------------------------------
 # Logging helpers

@@ -32,6 +32,8 @@ public class Enemy {
     private int spawnLevel;  // Track which level zone this enemy spawns in
     private float originalSpawnX;  // Original spawn position for respawn
     private float originalSpawnY;
+    private int targetPlayerId = -1;  // Track which player this enemy is targeting (-1 means no target)
+    private int highestDamageReceived = 0;  // Track highest damage to determine aggro priority
 
     public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
@@ -54,8 +56,11 @@ public class Enemy {
         this.spawnTime = System.currentTimeMillis();
     }
 
-    public void update(float deltaTime, Player targetPlayer) {
-        if (targetPlayer == null || !targetPlayer.isAlive()) return;
+    public void update(float deltaTime, Player nearestPlayer, Player targetedPlayer) {
+        // Prioritize the targeted player if they're alive, otherwise use nearest
+        Player playerToFollow = (targetedPlayer != null && targetedPlayer.isAlive()) ? targetedPlayer : nearestPlayer;
+        
+        if (playerToFollow == null || !playerToFollow.isAlive()) return;
         
         // Don't move while telegraphing an attack
         if (attackState == AttackState.TELEGRAPHING) {
@@ -63,12 +68,12 @@ public class Enemy {
         }
 
         // Calculate distance to player
-        float dx = targetPlayer.getX() - x;
-        float dy = targetPlayer.getY() - y;
+        float dx = playerToFollow.getX() - x;
+        float dy = playerToFollow.getY() - y;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
 
-        // Only chase player if within 7 tiles (224 pixels)
-        float chaseDistance = 7 * 32;
+        // Chase distance: 7 tiles normally, but unlimited when enemy has aggro on a target
+        float chaseDistance = (targetedPlayer != null) ? Float.MAX_VALUE : (7 * 32);
         if (distance > 0 && distance <= chaseDistance) {
             float newX = x + (dx / distance) * speed * deltaTime;
             float newY = y + (dy / distance) * speed * deltaTime;
@@ -119,6 +124,8 @@ public class Enemy {
         this.spawnTime = System.currentTimeMillis();
         this.attackState = AttackState.IDLE;
         this.telegraphStartTime = 0;
+        this.targetPlayerId = -1;
+        this.highestDamageReceived = 0;
         // Position will be updated by SpawnerSystem using setSpawnLevel
     }
 
@@ -194,5 +201,21 @@ public class Enemy {
     public void endAttack() {
         attackState = AttackState.IDLE;
         recordAttack();
+    }
+    
+    // Aggro/target management
+    public int getTargetPlayerId() { return targetPlayerId; }
+    
+    public void setTargetPlayer(int playerId, int damageDealt) {
+        // Switch aggro only if this player dealt more damage than previous highest
+        if (damageDealt > highestDamageReceived || targetPlayerId == -1) {
+            this.targetPlayerId = playerId;
+            this.highestDamageReceived = damageDealt;
+        }
+    }
+    
+    public void clearTarget() {
+        this.targetPlayerId = -1;
+        this.highestDamageReceived = 0;
     }
 }

@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS world_items (
   spawned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   claimed_by INT,
   claimed_at TIMESTAMP NULL,
-  expires_at TIMESTAMP DEFAULT (DATE_ADD(NOW(), INTERVAL 5 MINUTE)),
+  expires_at TIMESTAMP DEFAULT (DATE_ADD(NOW(), INTERVAL 60 SECOND)),
   FOREIGN KEY (item_template_id) REFERENCES item_templates(id),
   FOREIGN KEY (claimed_by) REFERENCES players(id) ON DELETE SET NULL,
   INDEX idx_claimed (claimed_by),
