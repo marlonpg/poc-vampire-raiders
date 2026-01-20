@@ -33,6 +33,7 @@ public class Enemy {
     private float originalSpawnY;
     private int targetPlayerId = -1;  // Track which player this enemy is targeting (-1 means no target)
     private int highestDamageReceived = 0;  // Track highest damage to determine aggro priority
+    private TelegraphType telegraphType;  // Telegraph attack shape and dimensions
 
     public Enemy(float x, float y, EnemyTemplate template) {
         this.id = idCounter++;
@@ -53,6 +54,8 @@ public class Enemy {
         this.attackRange = template.getAttackRange();
         this.experienceReward = template.getExperience();
         this.spawnTime = System.currentTimeMillis();
+        // Set telegraph type based on enemy name
+        this.telegraphType = getTelegraphTypeForEnemy(template.getName());
     }
 
     public void update(float deltaTime, Player nearestPlayer, Player targetedPlayer) {
@@ -227,5 +230,33 @@ public class Enemy {
     public void clearTarget() {
         this.targetPlayerId = -1;
         this.highestDamageReceived = 0;
+    }
+    
+    /**
+     * Get telegraph type based on enemy name
+     */
+    private TelegraphType getTelegraphTypeForEnemy(String enemyName) {
+        switch (enemyName) {
+            case "Spider":
+                return TelegraphType.CIRCLE;
+            case "Worm":
+                return TelegraphType.RECTANGLE_36_48;
+            case "Wild Dog":
+                return TelegraphType.RECTANGLE_48_72;
+            case "Hound":
+                return TelegraphType.RECTANGLE_72_72;
+            case "Elite Wild Dog":
+                return TelegraphType.RECTANGLE_48_96;
+            case "Giant":
+                return TelegraphType.RECTANGLE_96_96;
+            case "Skeleton":
+                return TelegraphType.RECTANGLE_20_120;
+            default:
+                return TelegraphType.RECTANGLE_96_96;  // Default fallback
+        }
+    }
+    
+    public TelegraphType getTelegraphType() {
+        return telegraphType;
     }
 }
