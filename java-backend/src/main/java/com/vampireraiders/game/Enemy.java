@@ -26,7 +26,6 @@ public class Enemy {
     public enum AttackState { IDLE, TELEGRAPHING, ATTACKING }
     private AttackState attackState = AttackState.IDLE;
     private long telegraphStartTime = 0;
-    private static final long TELEGRAPH_DURATION_MS = 2000;  // 1 second telegraph
     private float telegraphTargetX = 0;  // Position where attack will happen
     private float telegraphTargetY = 0;
     private int spawnLevel;  // Track which level zone this enemy spawns in
@@ -190,8 +189,19 @@ public class Enemy {
     }
     
     public boolean isTelegraphExpired() {
+        long telegraphDurationMs = getTelegraphDurationMs();
         return attackState == AttackState.TELEGRAPHING && 
-               (System.currentTimeMillis() - telegraphStartTime >= TELEGRAPH_DURATION_MS);
+               (System.currentTimeMillis() - telegraphStartTime >= telegraphDurationMs);
+    }
+    
+    /**
+     * Calculate telegraph duration based on attack rate
+     * Faster attacks get shorter telegraph times
+     * attackRate = attacks per second
+     * telegraph_duration = 1000ms / attackRate
+     */
+    public long getTelegraphDurationMs() {
+        return Math.round(1000.0 / attackRate);
     }
     
     public void resolveTelegraph() {

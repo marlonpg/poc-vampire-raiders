@@ -42,6 +42,17 @@ CREATE TABLE IF NOT EXISTS item_templates (
 );
 
 -- Enemy Templates (enemy definitions)
+CREATE TABLE IF NOT EXISTS telegraph_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  type_enum VARCHAR(20) NOT NULL, -- CIRCLE, RECTANGLE
+  width FLOAT NOT NULL,  -- For CIRCLE: diameter; For RECTANGLE: width
+  depth FLOAT NOT NULL,  -- For CIRCLE: 0; For RECTANGLE: depth
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_name (name)
+);
+
+-- Enemy Templates (enemy definitions)
 CREATE TABLE IF NOT EXISTS enemy_templates (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -53,8 +64,10 @@ CREATE TABLE IF NOT EXISTS enemy_templates (
   move_speed FLOAT NOT NULL DEFAULT 0,
   attack_range FLOAT NOT NULL DEFAULT 1.0,
   experience INT NOT NULL DEFAULT 0,
+  telegraph_type_id INT NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_enemy_templates_name (name)
+  UNIQUE KEY uq_enemy_templates_name (name),
+  FOREIGN KEY (telegraph_type_id) REFERENCES telegraph_types(id)
 );
 
 -- Enemy Item Drops (junction table for many-to-many with drop rates)
@@ -158,13 +171,27 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 ('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Add or Modify mods from items', FALSE),
 ('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', TRUE);
 
+-- Telegraph attack types
+INSERT INTO telegraph_types (name, type_enum, width, depth) VALUES
+('Spider', 'CIRCLE', 96.0, 0.0),
+('Worm', 'RECTANGLE', 36.0, 48.0),
+('Wild Dog', 'RECTANGLE', 48.0, 72.0),
+('Hound', 'RECTANGLE', 72.0, 72.0),
+('Elite Wild Dog', 'RECTANGLE', 48.0, 96.0),
+('Giant', 'RECTANGLE', 96.0, 96.0),
+('Skeleton', 'RECTANGLE', 20.0, 120.0)
+ON DUPLICATE KEY UPDATE name = name;
+
 -- Default enemy templates
-INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
+INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience, telegraph_type_id)
 VALUES 
-('Spider', 1, 30, 3, 8, 1.0, 70.0, 1.0, 5),
-('Worm', 2, 90, 9, 16, 0.8, 100.0, 0.8, 15),
-('Wild Dog', 3, 270, 27, 16, 1.5, 150.0, 0.3, 200),
-('Goblin', 4, 300, 20, 32, 2.0, 100.0, 2.0, 300)
+('Spider',   (SELECT id FROM telegraph_types WHERE name='Spider'), 2, 40, 1, 8, 1.0, 70.0, 1.0, 15),
+('Worm',     (SELECT id FROM telegraph_types WHERE name='Worm'), 4, 80, 3, 17, 0.8, 100.0, 0.8, 60),
+('Wild Dog', (SELECT id FROM telegraph_types WHERE name='Wild Dog'), 6, 120, 6, 26, 1.5, 150.0, 0.3, 100),
+('Hound',    (SELECT id FROM telegraph_types WHERE name='Hound'), 9, 160, 9, 35, 1.0, 100.0, 0.5, 140),
+('Elite Wild Dog', (SELECT id FROM telegraph_types WHERE name='Elite Wild Dog'), 14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
+('Giant',     (SELECT id FROM telegraph_types WHERE name='Giant'), 17, 400, 18, 62, 0.8, 50.0, 3.0, 200),
+('Skeleton', (SELECT id FROM telegraph_types WHERE name='Skeleton'), 19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample enemy item drops with rates

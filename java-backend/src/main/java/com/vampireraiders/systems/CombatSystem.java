@@ -17,8 +17,8 @@ import java.util.Random;
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
     // Telegraph hitbox dimensions (width side-to-side, depth forward from enemy)
-    private static final float TELEGRAPH_WIDTH = 96f;
-    private static final float TELEGRAPH_DEPTH = 48f;
+    private static final float TELEGRAPH_WIDTH = 48f;
+    private static final float TELEGRAPH_DEPTH = 96f;
     private final ItemDropService itemDropService = new ItemDropService();
     private StateSync stateSync;
 

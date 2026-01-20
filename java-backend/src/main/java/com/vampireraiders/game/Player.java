@@ -22,8 +22,8 @@ public class Player {
     private final long baseAttackCooldownMs = 1000;  // Base: 1 attack per second
     
         // Cached equipped weapon stats (to avoid DB queries every attack)
-        private float cachedAttackSpeed = 1.0f;
-        private float cachedAttackRange = 200.0f;
+        private float cachedAttackSpeed = 0.5f;
+        private float cachedAttackRange = 50.0f;
         private int cachedWeaponDamage = 0;
 
     public Player(int peerId, String username, float x, float y) {

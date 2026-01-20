@@ -260,7 +260,7 @@ public class GameWorld {
         }
 
             // Use cached weapon damage instead of querying database
-            return 5 + shooter.getCachedWeaponDamage();  // Base damage 15 plus weapon damage
+            return 1 + shooter.getLevel() + shooter.getCachedWeaponDamage();  // Base damage 15 plus weapon damage
     }
     
     // Utilities
