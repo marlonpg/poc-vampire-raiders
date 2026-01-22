@@ -9,6 +9,7 @@ public class GameState {
     private final List<Enemy> enemies = Collections.synchronizedList(new ArrayList<>());
     private final Queue<Enemy> deadEnemies = new ConcurrentLinkedQueue<>();
     private final List<Bullet> bullets = Collections.synchronizedList(new ArrayList<>());
+    private final List<MeleeAttack> meleeAttacks = Collections.synchronizedList(new ArrayList<>());
     private final List<WorldItem> worldItems = Collections.synchronizedList(new ArrayList<>());
     private long worldTime = 0;
     private boolean running = false;
@@ -77,6 +78,7 @@ public class GameState {
         players.clear();
         enemies.clear();
         bullets.clear();
+        meleeAttacks.clear();
         worldItems.clear();
         worldTime = 0;
     }
@@ -91,6 +93,18 @@ public class GameState {
 
     public void removeBullet(Bullet bullet) {
         bullets.remove(bullet);
+    }
+
+    public void addMeleeAttack(MeleeAttack attack) {
+        meleeAttacks.add(attack);
+    }
+
+    public List<MeleeAttack> getAllMeleeAttacks() {
+        return new ArrayList<>(meleeAttacks);
+    }
+
+    public void removeMeleeAttack(MeleeAttack attack) {
+        meleeAttacks.remove(attack);
     }
 
     public void addWorldItem(WorldItem item) {

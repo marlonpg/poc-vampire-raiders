@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS item_templates (
   defense INT DEFAULT 0,
   attack_speed FLOAT DEFAULT 1.0,
   attack_range FLOAT DEFAULT 200.0,
+  attack_type VARCHAR(20), -- melee, ranged, etc.
   rarity VARCHAR(20) DEFAULT 'common', -- common, uncommon, rare, epic, legendary
   stackable BOOLEAN DEFAULT FALSE,
   description TEXT,
@@ -144,19 +145,19 @@ CREATE TABLE IF NOT EXISTS item_mods (
 );
 
 -- Sample Item Templates
-INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 0, 2.0, 150.0, 'common', 'A basic iron dagger', FALSE),
-('Small Axe', 'weapon', 15, 0, 1.0, 200.0, 'common', 'A small axe', FALSE),
-('Small Bow', 'weapon', 8, 0, 1.5, 400.0, 'common', 'A small bow', FALSE),
-('Steel Sword', 'weapon', 20, 0, 1.0, 250.0, 'common', 'A well-crafted steel sword', FALSE),
-('Katana', 'weapon', 15, 0, 1.5, 250.0, 'common', 'A katana from the east', FALSE),
-('Leather Armor', 'armor', 0, 5, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
-('Iron Armor', 'armor', 0, 15, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
-('Plate Armor', 'armor', 0, 30, 1.0, 200.0, 'common', 'Sturdy plate armor', FALSE),
-('Health Potion', 'consumable', 0, 0, 1.0, 200.0, 'common', 'Restores 50 health', TRUE),
-('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Increase item in 1 level', FALSE),
-('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Add or Modify mods from items', FALSE),
-('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', TRUE);
+INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, attack_type, rarity, description, stackable) VALUES
+('Iron Dagger', 'weapon', 10, 0, 2.0, 150.0, 'melee', 'common', 'A basic iron dagger', FALSE),
+('Small Axe', 'weapon', 15, 0, 1.0, 200.0, 'melee', 'common', 'A small axe', FALSE),
+('Small Bow', 'weapon', 8, 0, 1.5, 400.0, 'ranged', 'common', 'A small bow', FALSE),
+('Steel Sword', 'weapon', 20, 0, 1.0, 250.0, 'melee', 'common', 'A well-crafted steel sword', FALSE),
+('Katana', 'weapon', 15, 0, 1.5, 250.0, 'melee', 'common', 'A katana from the east', FALSE),
+('Leather Armor', 'armor', 0, 5, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
+('Iron Armor', 'armor', 0, 15, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
+('Plate Armor', 'armor', 0, 30, 0, 0, NULL, 'common', 'Sturdy plate armor', FALSE),
+('Health Potion', 'consumable', 0, 0, 1.0, 200.0, NULL, 'common', 'Restores 50 health', TRUE),
+('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Increase item in 1 level', FALSE),
+('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Add or Modify mods from items', FALSE),
+('Gold Coin', 'loot', 0, 0, 1.0, 200.0, NULL, 'common', 'Currency', TRUE);
 
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)

@@ -12,6 +12,7 @@ var player_instance: Node2D = null
 var net_manager: Node = null
 var enemies: Dictionary = {}  # ID -> enemy node
 var bullets: Dictionary = {}  # ID -> bullet node
+var melee_attacks: Dictionary = {}  # ID -> melee attack data
 var other_players: Dictionary = {}  # peer_id -> player node (excluding local)
 var world_items: Dictionary = {}  # id -> world item node
 var last_input_dir: Vector2 = Vector2.ZERO
@@ -142,6 +143,10 @@ func _on_game_state_received(data: Dictionary):
 	
 	# Update bullets
 	_update_bullets(bullets_data)
+	
+	# Update melee attacks
+	var melee_data = data.get("melee_attacks", [])
+	_update_melee_attacks(melee_data)
 
 	# Update world items (drops)
 	_update_world_items(world_items_data)
@@ -366,6 +371,32 @@ func _update_bullets(bullets_data: Array):
 	for bullet_id in to_remove:
 		bullets.erase(bullet_id)
 
+func _update_melee_attacks(melee_data: Array):
+	"""Update melee attack data from server"""
+	# Track which attacks still exist on server
+	var server_ids = {}
+	for attack in melee_data:
+		var attack_id = attack.get("id")
+		server_ids[attack_id] = true
+		melee_attacks[attack_id] = attack
+		print("[MELEE] Received attack id=%s at (%.1f, %.1f) radius=%.1f" % [attack_id, attack.get("x"), attack.get("y"), attack.get("radius")])
+	
+	# Remove attacks that no longer exist on server or have expired
+	var to_remove = []
+	var current_time_ms = Time.get_ticks_msec()
+	for attack_id in melee_attacks.keys():
+		var attack = melee_attacks[attack_id]
+		var elapsed = current_time_ms - attack.get("start_time", 0)
+		var duration = attack.get("duration_ms", 1)
+		
+		# Remove if not in server list OR if expired
+		if not attack_id in server_ids or elapsed >= duration:
+			to_remove.append(attack_id)
+	
+	for attack_id in to_remove:
+		print("[MELEE] Removing attack id=%s" % [attack_id])
+		melee_attacks.erase(attack_id)
+
 func _update_health_ui(current: int, max_value: int):
 	if health_fill == null or health_label == null:
 		return
@@ -402,7 +433,66 @@ func _process(delta):
 			net_manager.send_player_input(input_dir.x, input_dir.y)
 			last_input_dir = input_dir
 			input_send_timer = 0.0
+	
+	# Trigger redraw for melee attacks
+	queue_redraw()
 
+func _draw():
+	"""Draw melee attack as a rotating stick (clock hand style) pointing at enemy"""
+	var current_time_ms = Time.get_ticks_msec()
+	var attacks_to_remove = []
+	
+	for attack_id in melee_attacks:
+		var attack = melee_attacks[attack_id]
+		var elapsed = current_time_ms - attack["start_time"]
+		var duration = attack["duration_ms"]
+		var progress = float(elapsed) / float(duration)
+		
+		if progress >= 1.0:
+			# Attack finished, mark for removal
+			attacks_to_remove.append(attack_id)
+			continue
+		
+		# Get player's CURRENT position instead of attack creation position
+		var player_id = attack["player_id"]
+		var player = null
+		
+		# Find the player in other_players dict or use local player
+		if net_manager and player_id == net_manager.peer_id and is_instance_valid(player_instance):
+			player = player_instance
+		elif player_id in other_players:
+			player = other_players[player_id]
+		
+		if player == null:
+			continue
+		
+		var x = player.position.x
+		var y = player.position.y
+		var radius = attack["radius"]
+		var direction = attack["direction_degrees"]  # Direction to enemy in degrees
+		
+		# The stick should sweep in a ±60° cone around the target direction
+		# But we need to also account for initial offset so the swing starts on the left side
+		# Swing from -90° (full left) through the target to +90° (full right)
+		var swing_start_angle = direction - 150.0  # Start far left of target
+		var swing_end_angle = direction + 0.0    # End far right of target
+		
+		# Current angle based on progress (0.0 to 1.0)
+		# This makes it sweep from left side through target to right side
+		var current_angle = swing_start_angle + (swing_end_angle - swing_start_angle) * progress
+		var angle_rad = deg_to_rad(current_angle)
+		
+		# Calculate end point of the stick
+		var end_x = x + radius * cos(angle_rad)
+		var end_y = y + radius * sin(angle_rad)
+		
+		# Draw the stick as a line from center to endpoint
+		var color = Color(0.9, 0.3, 0.2, 0.8)  # Red
+		draw_line(Vector2(x, y), Vector2(end_x, end_y), color, 8.0)
+	
+	# Remove expired attacks
+	for attack_id in attacks_to_remove:
+		melee_attacks.erase(attack_id)
 
 func _setup_spawner():
 	# TCP mode doesn't use MultiplayerSpawner - server is authoritative Java backend

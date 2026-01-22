@@ -77,15 +77,32 @@ public class GameWorld {
             }
         }
 
-        // Auto-attack: players fire bullets at nearest enemy
+        // Auto-attack: players fire bullets or melee attacks at nearest enemy
         for (Player player : state.getAllPlayers().values()) {
             if (player.isAlive() && !isInSafeZone(player.getX(), player.getY())) {
-                Player nearestEnemy = findNearestPlayer(player.getX(), player.getY());  // Find player to aim at
-                // For now, find nearest enemy instead
                 Enemy target = findNearestEnemyForAttack(player);
                 if (target != null && player.canAttack()) {
-                    Bullet bullet = new Bullet(player.getPeerId(), player.getX(), player.getY(), target.getX(), target.getY());
-                    state.addBullet(bullet);
+                    String attackType = player.getEquippedAttackType();
+                    
+                    if ("ranged".equals(attackType)) {
+                        // Ranged attack: use bullet
+                        Bullet bullet = new Bullet(player.getPeerId(), player.getX(), player.getY(), target.getX(), target.getY());
+                        state.addBullet(bullet);
+                    } else {
+                        // Melee attack: use semicircle
+                        // Semicircle radius is roughly based on attack range
+                        float radius = Math.min(player.getEquippedAttackRange(), 150f);
+                        long durationMs = (long) (1000f / player.getEquippedAttackSpeed());  // Duration based on attack speed
+                        
+                        // Calculate direction from player to target enemy
+                        float dx = target.getX() - player.getX();
+                        float dy = target.getY() - player.getY();
+                        float directionDegrees = (float) Math.toDegrees(Math.atan2(dy, dx));
+                        
+                        MeleeAttack attack = new MeleeAttack(player.getPeerId(), player.getX(), player.getY(), 
+                                                             radius, durationMs, directionDegrees);
+                        state.addMeleeAttack(attack);
+                    }
                     player.recordAttack();
                 }
             }
@@ -133,6 +150,47 @@ public class GameWorld {
                     
                     state.removeBullet(bullet);
                     break;
+                }
+            }
+        }
+
+        // Check melee attack-enemy collisions
+        long currentTimeMs = System.currentTimeMillis();
+        for (MeleeAttack attack : new ArrayList<>(state.getAllMeleeAttacks())) {
+            if (!attack.isActive(currentTimeMs)) {
+                // Attack expired, remove it
+                state.removeMeleeAttack(attack);
+                continue;
+            }
+            
+            Player attacker = state.getPlayer(attack.getPlayerId());
+            if (attacker == null) {
+                state.removeMeleeAttack(attack);
+                continue;
+            }
+            
+            for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
+                // Skip if this enemy was already hit by this attack
+                if (attack.hasHitEnemy(enemy.getId())) {
+                    continue;
+                }
+                
+                if (!checkMeleeHit(attack, enemy)) continue;
+                
+                int attackDamage = calculatePlayerDamage(attacker);
+                int effectiveDamage = Math.max(1, attackDamage - enemy.getDefense());
+                
+                // Mark enemy as hit by this attack (prevent multiple hits per swing)
+                attack.markEnemyHit(enemy.getId());
+                
+                // Set/update enemy aggro
+                enemy.setTargetPlayer(attack.getPlayerId(), effectiveDamage);
+                
+                combatSystem.damageEnemy(enemy, effectiveDamage, state);
+                
+                // Broadcast damage event for client-side visual feedback
+                if (stateSync != null) {
+                    stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
                 }
             }
         }
@@ -261,6 +319,41 @@ public class GameWorld {
 
             // Use cached weapon damage instead of querying database
             return 1 + shooter.getLevel() + shooter.getCachedWeaponDamage();  // Base damage 15 plus weapon damage
+    }
+    
+    /**
+     * Check if a melee attack hits an enemy.
+     * The attack is a 120° cone (60° on each side of the attack direction).
+     * Enemy must be within the radius AND within the angle range.
+     */
+    private boolean checkMeleeHit(MeleeAttack attack, Enemy enemy) {
+        float dx = enemy.getX() - attack.getX();
+        float dy = enemy.getY() - attack.getY();
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if enemy is within melee radius
+        if (distance > attack.getRadius()) {
+            return false;
+        }
+        
+        // Check if enemy is within the hit arc (±60° from attack direction)
+        float enemyAngleDegrees = (float) Math.toDegrees(Math.atan2(dy, dx));
+        float attackDirection = attack.getDirectionDegrees();
+        
+        // Normalize angles to 0-360 range
+        enemyAngleDegrees = ((enemyAngleDegrees % 360) + 360) % 360;
+        attackDirection = ((attackDirection % 360) + 360) % 360;
+        
+        // Calculate the angular difference
+        float angleDiff = Math.abs(enemyAngleDegrees - attackDirection);
+        
+        // Handle wraparound (e.g., 350° to 10° should be 20° difference, not 340°)
+        if (angleDiff > 180) {
+            angleDiff = 360 - angleDiff;
+        }
+        
+        // Enemy must be within ±60° of the attack direction
+        return angleDiff <= 60f;
     }
     
     // Utilities

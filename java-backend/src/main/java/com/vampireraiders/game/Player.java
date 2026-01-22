@@ -25,6 +25,7 @@ public class Player {
         private float cachedAttackSpeed = 0.5f;
         private float cachedAttackRange = 50.0f;
         private int cachedWeaponDamage = 0;
+        private String cachedAttackType = null;  // "ranged", "melee", or null
 
     public Player(int peerId, String username, float x, float y) {
         this.peerId = peerId;
@@ -143,6 +144,10 @@ public class Player {
         return cachedWeaponDamage;
     }
     
+    public String getEquippedAttackType() {
+        return cachedAttackType;
+    }
+    
     /**
      * Refreshes the cached equipped weapon stats from the database.
      * Should be called whenever a player equips/unequips items.
@@ -172,11 +177,18 @@ public class Player {
             } else {
                 cachedWeaponDamage = 0;
             }
+            
+            if (weapon.containsKey("attack_type")) {
+                cachedAttackType = (String) weapon.get("attack_type");
+            } else {
+                cachedAttackType = null;
+            }
         } else {
             // No weapon equipped, use defaults
             cachedAttackSpeed = 1.0f;
             cachedAttackRange = 200.0f;
             cachedWeaponDamage = 0;
+            cachedAttackType = null;
         }
     }
 
