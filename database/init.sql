@@ -161,10 +161,13 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
-('Spider', 1, 30, 3, 8, 1.0, 70.0, 1.0, 5),
-('Worm', 2, 90, 9, 16, 0.8, 100.0, 0.8, 15),
-('Wild Dog', 3, 270, 27, 16, 1.5, 150.0, 0.3, 200),
-('Goblin', 4, 300, 20, 32, 2.0, 100.0, 2.0, 300)
+('Spider',   2, 40, 1, 8, 1.0, 70.0, 1.0, 15),
+('Worm',     4, 80, 3, 17, 0.8, 100.0, 0.8, 60),
+('Wild Dog', 6, 120, 6, 26, 1.5, 150.0, 0.3, 100),
+('Hound',    9, 160, 9, 35, 1.0, 100.0, 0.5, 140),
+('Elite Wild Dog', 14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
+('Giant',     17, 400, 18, 62, 0.8, 50.0, 3.0, 200),
+('Skeleton', 19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample enemy item drops with rates

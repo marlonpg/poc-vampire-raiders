@@ -3,11 +3,7 @@ package com.vampireraiders.systems;
 import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.InventoryRepository;
 import com.vampireraiders.database.WorldItemRepository;
-import com.vampireraiders.game.Enemy;
-import com.vampireraiders.game.GameState;
-import com.vampireraiders.game.Player;
-import com.vampireraiders.game.Tilemap;
-import com.vampireraiders.game.WorldItem;
+import com.vampireraiders.game.*;
 import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
 
@@ -17,8 +13,8 @@ import java.util.Random;
 public class CombatSystem {
     private static final float COLLISION_DISTANCE = 40f;
     // Telegraph hitbox dimensions (width side-to-side, depth forward from enemy)
-    private static final float TELEGRAPH_WIDTH = 96f;
-    private static final float TELEGRAPH_DEPTH = 48f;
+    private static final float TELEGRAPH_WIDTH = 48f;
+    private static final float TELEGRAPH_DEPTH = 96f;
     private final ItemDropService itemDropService = new ItemDropService();
     private StateSync stateSync;
 
@@ -55,28 +51,7 @@ public class CombatSystem {
                 
                 // If enemy is telegraphing, check if it's time to apply damage
                 if (enemy.isTelegraphExpired()) {
-                    // Oriented rectangle hitbox in enemy forward direction
-                    float dirX = enemy.getTelegraphTargetX() - enemy.getX();
-                    float dirY = enemy.getTelegraphTargetY() - enemy.getY();
-                    float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
-                    if (len == 0) {
-                        dirX = 1;
-                        dirY = 0;
-                        len = 1;
-                    }
-                    dirX /= len;
-                    dirY /= len;
-                    // Perpendicular vector
-                    float perpX = -dirY;
-                    float perpY = dirX;
-
-                    float relX = player.getX() - enemy.getX();
-                    float relY = player.getY() - enemy.getY();
-
-                    float forward = relX * dirX + relY * dirY;       // projection on forward
-                    float side = relX * perpX + relY * perpY;         // projection on side
-
-                    boolean inside = forward >= 0 && forward <= TELEGRAPH_DEPTH && Math.abs(side) <= TELEGRAPH_WIDTH / 2f;
+                    boolean inside = checkTelegraphHit(enemy, player);
 
                     if (inside) {
                         // Apply damage
@@ -321,5 +296,47 @@ public class CombatSystem {
         float dropX = x + (float) (Math.cos(angle) * radius) + jitterX;
         float dropY = y + (float) (Math.sin(angle) * radius) + jitterY;
         return new float[]{dropX, dropY};
+    }
+
+    /**
+     * Check if player is hit by telegraph attack based on telegraph type
+     */
+    private boolean checkTelegraphHit(Enemy enemy, Player player) {
+        TelegraphType telegraphType = enemy.getTelegraphType();
+
+        if (telegraphType.isCircle()) {
+            // Circle collision detection
+            float dx = player.getX() - enemy.getX();
+            float dy = player.getY() - enemy.getY();
+            float distance = (float) Math.sqrt(dx * dx + dy * dy);
+            float radius = telegraphType.getWidth() / 2.0f;  // width is diameter for circles
+            return distance <= radius;
+        } else {
+            // Rectangle collision detection (oriented box)
+            float width = telegraphType.getWidth();
+            float depth = telegraphType.getDepth();
+
+            float dirX = enemy.getTelegraphTargetX() - enemy.getX();
+            float dirY = enemy.getTelegraphTargetY() - enemy.getY();
+            float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+            if (len == 0) {
+                dirX = 1;
+                dirY = 0;
+                len = 1;
+            }
+            dirX /= len;
+            dirY /= len;
+            // Perpendicular vector
+            float perpX = -dirY;
+            float perpY = dirX;
+
+            float relX = player.getX() - enemy.getX();
+            float relY = player.getY() - enemy.getY();
+
+            float forward = relX * dirX + relY * dirY;       // projection on forward
+            float side = relX * perpX + relY * perpY;         // projection on side
+
+            return forward >= 0 && forward <= depth && Math.abs(side) <= width / 2.0f;
+        }
     }
 }

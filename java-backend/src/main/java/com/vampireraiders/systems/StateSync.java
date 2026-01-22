@@ -56,6 +56,7 @@ public class StateSync {
             enemyObj.addProperty("telegraph_target_x", enemy.getTelegraphTargetX());
             enemyObj.addProperty("telegraph_target_y", enemy.getTelegraphTargetY());
             enemyObj.addProperty("telegraph_start_time", enemy.getTelegraphStartTime());
+            enemyObj.addProperty("telegraph_duration_ms", enemy.getTelegraphDurationMs());
             
             enemiesArray.add(enemyObj);
         }
