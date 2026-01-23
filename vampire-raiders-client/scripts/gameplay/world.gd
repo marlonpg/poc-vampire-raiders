@@ -375,19 +375,32 @@ func _update_melee_attacks(melee_data: Array):
 	"""Update melee attack data from server"""
 	# Track which attacks still exist on server
 	var server_ids = {}
+	var current_time_ms = Time.get_ticks_msec()
 	for attack in melee_data:
 		var attack_id = attack.get("id")
 		server_ids[attack_id] = true
+
+		# Preserve a local (monotonic) start time so we don't mix server epoch time
+		# with client uptime ticks.
+		if melee_attacks.has(attack_id):
+			var existing = melee_attacks[attack_id]
+			if typeof(existing) == TYPE_DICTIONARY and existing.has("_client_start_ms"):
+				attack["_client_start_ms"] = existing["_client_start_ms"]
+
+		if not attack.has("_client_start_ms"):
+			attack["_client_start_ms"] = current_time_ms
+
 		melee_attacks[attack_id] = attack
 		print("[MELEE] Received attack id=%s at (%.1f, %.1f) radius=%.1f" % [attack_id, attack.get("x"), attack.get("y"), attack.get("radius")])
 	
 	# Remove attacks that no longer exist on server or have expired
 	var to_remove = []
-	var current_time_ms = Time.get_ticks_msec()
 	for attack_id in melee_attacks.keys():
 		var attack = melee_attacks[attack_id]
-		var elapsed = current_time_ms - attack.get("start_time", 0)
-		var duration = attack.get("duration_ms", 1)
+		var start_ms = int(attack.get("_client_start_ms", current_time_ms))
+		var elapsed = current_time_ms - start_ms
+		var duration = int(attack.get("duration_ms", 1))
+		duration = max(duration, 1)
 		
 		# Remove if not in server list OR if expired
 		if not attack_id in server_ids or elapsed >= duration:
@@ -444,9 +457,11 @@ func _draw():
 	
 	for attack_id in melee_attacks:
 		var attack = melee_attacks[attack_id]
-		var elapsed = current_time_ms - attack["start_time"]
-		var duration = attack["duration_ms"]
-		var progress = float(elapsed) / float(duration)
+		var duration = int(attack.get("duration_ms", 1))
+		duration = max(duration, 1)
+		var start_ms = int(attack.get("_client_start_ms", current_time_ms))
+		var elapsed = current_time_ms - start_ms
+		var progress = clamp(float(elapsed) / float(duration), 0.0, 1.0)
 		
 		if progress >= 1.0:
 			# Attack finished, mark for removal
@@ -469,18 +484,25 @@ func _draw():
 		var x = player.position.x
 		var y = player.position.y
 		var radius = attack["radius"]
-		var direction = attack["direction_degrees"]  # Direction to enemy in degrees
-		
+		var direction = float(attack.get("direction_degrees", 0.0))  # Direction to enemy in degrees
+		direction = wrapf((direction), 0.0, 360.0)
 		# The stick should sweep in a ±60° cone around the target direction
 		# But we need to also account for initial offset so the swing starts on the left side
 		# Swing from -90° (full left) through the target to +90° (full right)
-		var swing_start_angle = direction - 150.0  # Start far left of target
-		var swing_end_angle = direction + 0.0    # End far right of target
 		
+		var swing_start_angle = wrapf((direction - 60.0), 0.0, 360.0)
+		var swing_end_angle   = wrapf((direction + 60.0), 0.0, 360.0)
+		#_log_client("direction=%s, radius=%s, swing_start_angle=%s, swing_end_angle=%s" % [direction, radius, swing_start_angle, swing_end_angle])
 		# Current angle based on progress (0.0 to 1.0)
 		# This makes it sweep from left side through target to right side
-		var current_angle = swing_start_angle + (swing_end_angle - swing_start_angle) * progress
+		var swing_end_for_interp = swing_end_angle
+		if swing_end_for_interp < swing_start_angle:
+			swing_end_for_interp += 360.0
+		var current_angle = swing_start_angle + (swing_end_for_interp - swing_start_angle) * progress
+		current_angle = wrapf(current_angle, 0.0, 360.0)
 		var angle_rad = deg_to_rad(current_angle)
+		
+		#_log_client("current_angle=%s, angle_rad=%s" % [current_angle, angle_rad])
 		
 		# Calculate end point of the stick
 		var end_x = x + radius * cos(angle_rad)

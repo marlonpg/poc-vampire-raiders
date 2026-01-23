@@ -146,11 +146,11 @@ CREATE TABLE IF NOT EXISTS item_mods (
 
 -- Sample Item Templates
 INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, attack_type, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 0, 2.0, 150.0, 'melee', 'common', 'A basic iron dagger', FALSE),
-('Small Axe', 'weapon', 15, 0, 1.0, 200.0, 'melee', 'common', 'A small axe', FALSE),
-('Small Bow', 'weapon', 8, 0, 1.5, 400.0, 'ranged', 'common', 'A small bow', FALSE),
-('Steel Sword', 'weapon', 20, 0, 1.0, 250.0, 'melee', 'common', 'A well-crafted steel sword', FALSE),
-('Katana', 'weapon', 15, 0, 1.5, 250.0, 'melee', 'common', 'A katana from the east', FALSE),
+('Iron Dagger', 'weapon', 10, 0, 1.2, 50.0, 'melee', 'common', 'A basic iron dagger', FALSE),
+('Small Axe', 'weapon', 15, 0, 1.0, 70.0, 'melee', 'common', 'A small axe', FALSE),
+('Small Bow', 'weapon', 8, 0, 1.2, 200.0, 'ranged', 'common', 'A small bow', FALSE),
+('Steel Sword', 'weapon', 20, 0, 1.0, 80.0, 'melee', 'common', 'A well-crafted steel sword', FALSE),
+('Katana', 'weapon', 15, 0, 1.4, 80.0, 'melee', 'common', 'A katana from the east', FALSE),
 ('Leather Armor', 'armor', 0, 5, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
 ('Iron Armor', 'armor', 0, 15, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
 ('Plate Armor', 'armor', 0, 30, 0, 0, NULL, 'common', 'Sturdy plate armor', FALSE),
@@ -162,9 +162,9 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
-('Spider',   2, 40, 1, 8, 1.0, 70.0, 1.0, 15),
+('Spider',   2, 40, 1, 8, 1.0, 90.0, 1.0, 15),
 ('Worm',     4, 80, 3, 17, 0.8, 100.0, 0.8, 60),
-('Wild Dog', 6, 120, 6, 26, 1.5, 150.0, 0.3, 100),
+('Wild Dog', 6, 120, 6, 26, 0.5, 150.0, 0.5, 100),
 ('Hound',    9, 160, 9, 35, 1.0, 100.0, 0.5, 140),
 ('Elite Wild Dog', 14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
 ('Giant',     17, 400, 18, 62, 0.8, 50.0, 3.0, 200),
