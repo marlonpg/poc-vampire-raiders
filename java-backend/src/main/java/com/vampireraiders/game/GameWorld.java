@@ -317,8 +317,17 @@ public class GameWorld {
             return 1;  // Fallback when shooter not found
         }
 
-            // Use cached weapon damage instead of querying database
-            return 1 + shooter.getLevel() + shooter.getCachedWeaponDamage();  // Base damage 15 plus weapon damage
+        // Base damage (current behavior)
+        int baseDamage = 1 + shooter.getLevel() + shooter.getCachedWeaponDamage();
+
+        // Mod scaling: LEVEL increases damage by 10% per mod_value.
+        int levelMod = shooter.getCachedWeaponLevelMod();
+        if (levelMod > 0) {
+            float multiplier = 1.0f + (levelMod * 0.10f);
+            baseDamage = Math.max(1, Math.round(baseDamage * multiplier));
+        }
+
+        return baseDamage;
     }
     
     /**

@@ -13,6 +13,37 @@ import java.util.HashMap;
 
 public class InventoryRepository {
 
+    public static Map<String, Object> getInventoryItemForPlayerById(int playerId, long inventoryId) {
+        String sql = "SELECT inv.id AS inventory_id, inv.quantity, " +
+                "wi.id AS world_item_id, wi.item_template_id, it.name, it.type, it.stackable " +
+                "FROM inventory inv " +
+                "JOIN world_items wi ON inv.world_item_id = wi.id " +
+                "JOIN item_templates it ON wi.item_template_id = it.id " +
+                "WHERE inv.player_id = ? AND inv.id = ? LIMIT 1";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, playerId);
+            stmt.setLong(2, inventoryId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("inventory_id", rs.getLong("inventory_id"));
+                    row.put("quantity", rs.getInt("quantity"));
+                    row.put("world_item_id", rs.getLong("world_item_id"));
+                    row.put("item_template_id", rs.getInt("item_template_id"));
+                    row.put("name", rs.getString("name"));
+                    row.put("type", rs.getString("type"));
+                    row.put("stackable", rs.getBoolean("stackable"));
+                    return row;
+                }
+            }
+        } catch (SQLException e) {
+            Logger.error("Failed to fetch inventory item: " + e.getMessage());
+        }
+        return null;
+    }
+
     public static boolean addInventoryItem(int playerId, long worldItemId, int slotX, int slotY) {
         String sql = "INSERT INTO inventory (player_id, world_item_id, slot_x, slot_y) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();

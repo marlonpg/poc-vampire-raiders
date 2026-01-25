@@ -1,6 +1,7 @@
 package com.vampireraiders.game;
 
 import com.vampireraiders.database.EquippedItemRepository;
+import com.vampireraiders.database.ItemModRepository;
 import com.vampireraiders.database.PlayerRepository;
 import java.util.Map;
 
@@ -25,6 +26,7 @@ public class Player {
         private float cachedAttackSpeed = 0.5f;
         private float cachedAttackRange = 50.0f;
         private int cachedWeaponDamage = 0;
+        private int cachedWeaponLevelMod = 0;
         private String cachedAttackType = null;  // "ranged", "melee", or null
 
     public Player(int peerId, String username, float x, float y) {
@@ -143,6 +145,10 @@ public class Player {
     public int getCachedWeaponDamage() {
         return cachedWeaponDamage;
     }
+
+    public int getCachedWeaponLevelMod() {
+        return cachedWeaponLevelMod;
+    }
     
     public String getEquippedAttackType() {
         return cachedAttackType;
@@ -177,6 +183,15 @@ public class Player {
             } else {
                 cachedWeaponDamage = 0;
             }
+
+            // Cache mods that affect combat.
+            // Mods are stored per world item instance (world_item_id).
+            if (weapon.containsKey("world_item_id") && weapon.get("world_item_id") instanceof Number) {
+                long worldItemId = ((Number) weapon.get("world_item_id")).longValue();
+                cachedWeaponLevelMod = ItemModRepository.getModValueForWorldItem(worldItemId, "LEVEL");
+            } else {
+                cachedWeaponLevelMod = 0;
+            }
             
             if (weapon.containsKey("attack_type")) {
                 cachedAttackType = (String) weapon.get("attack_type");
@@ -188,6 +203,7 @@ public class Player {
             cachedAttackSpeed = 1.0f;
             cachedAttackRange = 200.0f;
             cachedWeaponDamage = 0;
+            cachedWeaponLevelMod = 0;
             cachedAttackType = null;
         }
     }

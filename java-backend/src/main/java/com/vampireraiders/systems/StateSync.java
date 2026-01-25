@@ -105,6 +105,7 @@ public class StateSync {
             itemObj.addProperty("x", item.getX());
             itemObj.addProperty("y", item.getY());
             itemObj.addProperty("claimed_by", item.getClaimedBy());
+            itemObj.addProperty("has_mods", item.hasMods());
             worldItemsArray.add(itemObj);
         }
         message.add("world_items", worldItemsArray);

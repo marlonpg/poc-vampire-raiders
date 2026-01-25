@@ -2,6 +2,7 @@ package com.vampireraiders.systems;
 
 import com.vampireraiders.database.EquippedItemRepository;
 import com.vampireraiders.database.InventoryRepository;
+import com.vampireraiders.database.ItemModRepository;
 import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.*;
 import com.vampireraiders.systems.ItemDropService;
@@ -247,6 +248,7 @@ public class CombatSystem {
                 String name = (String) info.get("name");
                 WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
                 dropped.setTemplateName(name);
+                dropped.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
                 state.addWorldItem(dropped);
                 Logger.info("DEATH DROP (equipped): player=" + playerId + ", slot=" + slotType + ", worldItemId=" + worldItemId +
                         ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);
@@ -270,6 +272,7 @@ public class CombatSystem {
 
             WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
             dropped.setTemplateName(name);
+                dropped.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
             state.addWorldItem(dropped);
             Logger.info("DEATH DROP (inventory): player=" + playerId + ", worldItemId=" + worldItemId +
                     ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);

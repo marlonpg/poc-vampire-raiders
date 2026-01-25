@@ -9,6 +9,7 @@ import com.vampireraiders.database.ItemTemplateRepository;
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.GameState;
+import com.vampireraiders.database.ItemModRepository;
 import com.vampireraiders.game.GameWorld;
 import com.vampireraiders.game.Player;
 import com.vampireraiders.game.Tilemap;
@@ -175,6 +176,9 @@ public class NetworkManager {
             case "unequip_item":
                 handleUnequipItem(client, message);
                 break;
+            case "apply_jewel":
+                handleApplyJewel(client, message);
+                break;
             case "heartbeat":
                 // Just update heartbeat (already done above)
                 break;
@@ -191,6 +195,80 @@ public class NetworkManager {
             default:
                 Logger.debug("Unknown message type: " + type);
         }
+    }
+
+    private void handleApplyJewel(GameClient client, JsonObject message) {
+        if (!message.has("jewel_inventory_id") || !message.has("target_inventory_id")) return;
+
+        Player player = gameWorld.getState().getPlayer(client.getPeerId());
+        if (player == null) return;
+
+        int playerId = player.getDatabaseId() > 0 ? player.getDatabaseId() : player.getPeerId();
+        long jewelInventoryId = message.get("jewel_inventory_id").getAsLong();
+        long targetInventoryId = message.get("target_inventory_id").getAsLong();
+
+        var jewel = InventoryRepository.getInventoryItemForPlayerById(playerId, jewelInventoryId);
+        var target = InventoryRepository.getInventoryItemForPlayerById(playerId, targetInventoryId);
+        if (jewel == null || target == null) return;
+
+        String jewelType = (String) jewel.get("type");
+        String jewelName = (String) jewel.get("name");
+        if (!"jewel".equalsIgnoreCase(jewelType)) {
+            Logger.debug("APPLY_JEWEL: inventory_id=" + jewelInventoryId + " is not a jewel");
+            return;
+        }
+
+        String targetType = (String) target.get("type");
+        if (!"weapon".equalsIgnoreCase(targetType) && !"armor".equalsIgnoreCase(targetType)) {
+            Logger.debug("APPLY_JEWEL: target inventory_id=" + targetInventoryId + " invalid type=" + targetType);
+            return;
+        }
+
+        // Currently only Jewel of Strength is supported: upgrades/adds LEVEL mod.
+        if (!"Jewel of Strength".equalsIgnoreCase(jewelName)) {
+            Logger.debug("APPLY_JEWEL: unsupported jewel name=" + jewelName);
+            return;
+        }
+
+        long targetWorldItemId = ((Number) target.get("world_item_id")).longValue();
+        int currentLevel = ItemModRepository.getModValueForWorldItem(targetWorldItemId, "LEVEL");
+        int maxLevel = ItemModRepository.getMaxModValue("LEVEL");
+        if (maxLevel <= 0) {
+            Logger.warn("APPLY_JEWEL: No LEVEL mods defined in mod_templates");
+            return;
+        }
+
+        int nextLevel = currentLevel <= 0 ? 1 : (currentLevel + 1);
+        if (nextLevel > maxLevel) {
+            Logger.info("APPLY_JEWEL: Target already at max LEVEL (" + currentLevel + ") for world_item_id=" + targetWorldItemId);
+            return;
+        }
+
+        Integer modTemplateId = ItemModRepository.getModTemplateId("LEVEL", nextLevel);
+        if (modTemplateId == null) {
+            Logger.warn("APPLY_JEWEL: Missing mod template for LEVEL=" + nextLevel);
+            return;
+        }
+
+        boolean modOk = ItemModRepository.upsertWorldItemMod(targetWorldItemId, "LEVEL", modTemplateId);
+        if (!modOk) {
+            Logger.warn("APPLY_JEWEL: Failed to upsert LEVEL mod for world_item_id=" + targetWorldItemId);
+            return;
+        }
+
+        // Consume the jewel.
+        int quantity = ((Number) jewel.get("quantity")).intValue();
+        long jewelWorldItemId = ((Number) jewel.get("world_item_id")).longValue();
+
+        if (quantity > 1) {
+            InventoryRepository.decrementItemQuantity(jewelInventoryId);
+        } else {
+            InventoryRepository.deleteInventoryItem(jewelInventoryId);
+            WorldItemRepository.deleteWorldItem(jewelWorldItemId);
+        }
+
+        Logger.info("APPLY_JEWEL: Player=" + playerId + " applied Jewel of Strength to inventory_id=" + targetInventoryId +
+                " (world_item_id=" + targetWorldItemId + ") LEVEL " + currentLevel + " -> " + nextLevel);
     }
 
     private void handlePlayerJoin(GameClient client, JsonObject message) {
@@ -422,6 +500,20 @@ public class NetworkManager {
             obj.addProperty("quantity", ((Number) row.get("quantity")).intValue());
             obj.addProperty("slot_x", ((Number) row.get("slot_x")).intValue());
             obj.addProperty("slot_y", ((Number) row.get("slot_y")).intValue());
+
+            // Attach mods for client tooltip display
+            long worldItemId = ((Number) row.get("world_item_id")).longValue();
+            var mods = ItemModRepository.getModsForWorldItem(worldItemId);
+            var modsArray = new com.google.gson.JsonArray();
+            for (var m : mods) {
+                JsonObject mObj = new JsonObject();
+                mObj.addProperty("mod_type", (String) m.get("mod_type"));
+                mObj.addProperty("mod_value", ((Number) m.get("mod_value")).intValue());
+                mObj.addProperty("mod_name", (String) m.get("mod_name"));
+                modsArray.add(mObj);
+            }
+            obj.add("mods", modsArray);
+
             arr.add(obj);
             Logger.info("  - Item: " + row.get("name") + " at slot (" + row.get("slot_x") + "," + row.get("slot_y") + "), quantity: " + row.get("quantity"));
         }
@@ -443,6 +535,20 @@ public class NetworkManager {
             itemObj.addProperty("defense", ((Number) item.get("defense")).intValue());
             itemObj.addProperty("rarity", (String) item.get("rarity"));
             itemObj.addProperty("stackable", (Boolean) item.get("stackable"));
+
+            // Attach mods for client tooltip display
+            long worldItemId = ((Number) item.get("world_item_id")).longValue();
+            var mods = ItemModRepository.getModsForWorldItem(worldItemId);
+            var modsArray = new com.google.gson.JsonArray();
+            for (var m : mods) {
+                JsonObject mObj = new JsonObject();
+                mObj.addProperty("mod_type", (String) m.get("mod_type"));
+                mObj.addProperty("mod_value", ((Number) m.get("mod_value")).intValue());
+                mObj.addProperty("mod_name", (String) m.get("mod_name"));
+                modsArray.add(mObj);
+            }
+            itemObj.add("mods", modsArray);
+
             equippedObj.add(slotType, itemObj);
             Logger.info("  - Equipped: " + slotType + " = " + item.get("name"));
         }
@@ -498,6 +604,7 @@ public class NetworkManager {
                 if (newWorldItemId > 0) {
                     WorldItem wi = new WorldItem(newWorldItemId, templateId, player.getX(), player.getY(), null);
                     wi.setTemplateName(name);
+                    wi.setHasMods(false);
                     gameWorld.getState().addWorldItem(wi);
                     Logger.info("DROP: Created new world item " + newWorldItemId + " for dropped item");
                 }
@@ -514,6 +621,7 @@ public class NetworkManager {
                 String name = (String) info.get("name");
                 WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
                 wi.setTemplateName(name);
+                wi.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
                 gameWorld.getState().addWorldItem(wi);
             }
         }
