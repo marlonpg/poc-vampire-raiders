@@ -21,6 +21,8 @@ var equipped_items = {
 var drag_from_index: int = -1  # Track which item is being dragged from inventory
 var drag_from_equipped: String = ""  # Track which equipped item is being dragged
 
+const DropSfx = preload("res://scripts/audio/DropSfx.gd")
+
 func _ready():
 	if grid_container == null:
 		return
@@ -304,6 +306,7 @@ func _request_drop_from_inventory(index: int):
 		return
 	
 	var item = inventory_items[index]
+	DropSfx.play_drop_for_item(item, self)
 	
 	if net_manager and item.has("inventory_id"):
 		net_manager.send_json({

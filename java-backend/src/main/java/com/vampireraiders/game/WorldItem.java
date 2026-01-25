@@ -7,6 +7,7 @@ public class WorldItem {
     private final float y;
     private Integer claimedBy; // null when unclaimed
     private String templateName; // optional helper for broadcasting
+    private String itemType; // optional helper for broadcasting
     private boolean hasMods = false;
     private final long spawnedAtMs; // timestamp when item was spawned
     private static final long ITEM_TTL_MS = 60000; // 60 seconds
@@ -50,6 +51,14 @@ public class WorldItem {
 
     public void setTemplateName(String templateName) {
         this.templateName = templateName;
+    }
+
+    public String getItemType() {
+        return itemType;
+    }
+
+    public void setItemType(String itemType) {
+        this.itemType = itemType;
     }
 
     public boolean hasMods() {

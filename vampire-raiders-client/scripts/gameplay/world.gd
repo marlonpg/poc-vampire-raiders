@@ -24,6 +24,10 @@ var local_max_health: int = 100
 var local_level: int = 1
 var local_xp: int = 0
 var damage_container: Node2D = null
+const DROP_SFX_MAX_DISTANCE := 450.0
+var drop_sfx_enabled: bool = false
+
+const DropSfx = preload("res://scripts/audio/DropSfx.gd")
 
 # Perf / network overlay
 var perf_label: Label = null
@@ -171,6 +175,18 @@ func _on_game_state_received(data: Dictionary):
 	# Update world items (drops)
 	_update_world_items(world_items_data)
 
+	# Enable drop SFX after first state so we don't play a burst on join.
+	if not drop_sfx_enabled:
+		drop_sfx_enabled = true
+
+func _play_world_drop_sfx(item_data: Dictionary) -> void:
+	if not drop_sfx_enabled:
+		return
+	var listener_pos := Vector2.INF
+	if player_instance != null:
+		listener_pos = player_instance.position
+	DropSfx.play_drop_for_item(item_data, self, listener_pos, DROP_SFX_MAX_DISTANCE)
+
 func _update_players(players_data: Array) -> void:
 	"""Spawn/update/remove player sprites for all peers."""
 	var server_ids := {}
@@ -237,6 +253,7 @@ func _update_world_items(items_data: Array):
 		var item_id = item_data.get("id")
 		server_ids[item_id] = true
 		if not world_items.has(item_id):
+			_play_world_drop_sfx(item_data)
 			if world_item_scene:
 				var node = world_item_scene.instantiate()
 				node.item_id = item_id
@@ -415,7 +432,6 @@ func _update_melee_attacks(melee_data: Array):
 			attack["_client_start_ms"] = current_time_ms
 
 		melee_attacks[attack_id] = attack
-		print("[MELEE] Received attack id=%s at (%.1f, %.1f) radius=%.1f" % [attack_id, attack.get("x"), attack.get("y"), attack.get("radius")])
 	
 	# Remove attacks that no longer exist on server or have expired
 	var to_remove = []

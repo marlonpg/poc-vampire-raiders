@@ -45,6 +45,7 @@ public class ItemDropService {
                 WorldItem worldItem = WorldItemRepository.createWorldItem(template.getId(), x, y);
                 if (worldItem != null) {
                     worldItem.setTemplateName(template.getName());
+                    worldItem.setItemType(template.getType());
                 }
                 return worldItem;
             }

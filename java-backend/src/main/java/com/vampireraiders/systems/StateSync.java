@@ -102,6 +102,7 @@ public class StateSync {
             itemObj.addProperty("id", item.getId());
             itemObj.addProperty("item_template_id", item.getItemTemplateId());
             itemObj.addProperty("name", item.getTemplateName() != null ? item.getTemplateName() : "Item");
+            itemObj.addProperty("type", item.getItemType() != null ? item.getItemType() : "");
             itemObj.addProperty("x", item.getX());
             itemObj.addProperty("y", item.getY());
             itemObj.addProperty("claimed_by", item.getClaimedBy());

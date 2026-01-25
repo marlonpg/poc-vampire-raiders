@@ -18,7 +18,6 @@ func _ready():
 	# Debug: print item data
 	var is_stackable = item_data.get("stackable", false)
 	var quantity = item_data.get("quantity", 1)
-	print("ItemIcon ready - Name: %s, Stackable: %s, Quantity: %d" % [item_data.get("name", "Unknown"), is_stackable, quantity])
 	
 	# Create quantity label in top right corner (deferred to allow layout)
 	if is_stackable and quantity > 1:

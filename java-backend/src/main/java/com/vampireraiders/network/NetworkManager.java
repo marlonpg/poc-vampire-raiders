@@ -419,7 +419,8 @@ public class NetworkManager {
         
         // Check if inventory is full (6 cols x 12 rows = 72 slots max)
         var inventoryItems = InventoryRepository.getInventoryForPlayer(playerId);
-        if (inventoryItems.size() >= 72) {
+        var equipped = EquippedItemRepository.getEquippedItems(playerId);
+        if (inventoryItems.size() >= 72 + equipped.size()) {
             Logger.info("PICKUP: Inventory full for player " + playerId + ", cannot add item");
             return;
         }
@@ -600,10 +601,12 @@ public class NetworkManager {
             if (info != null) {
                 templateId = ((Number) info.get("item_template_id")).intValue();
                 String name = (String) info.get("name");
+                String type = (String) info.get("type");
                 long newWorldItemId = WorldItemRepository.createWorldItemAndGetId(templateId, player.getX(), player.getY());
                 if (newWorldItemId > 0) {
                     WorldItem wi = new WorldItem(newWorldItemId, templateId, player.getX(), player.getY(), null);
                     wi.setTemplateName(name);
+                    wi.setItemType(type);
                     wi.setHasMods(false);
                     gameWorld.getState().addWorldItem(wi);
                     Logger.info("DROP: Created new world item " + newWorldItemId + " for dropped item");
@@ -619,8 +622,10 @@ public class NetworkManager {
             if (info != null) {
                 int templateId = ((Number) info.get("item_template_id")).intValue();
                 String name = (String) info.get("name");
+                String type = (String) info.get("type");
                 WorldItem wi = new WorldItem(worldItemId, templateId, player.getX(), player.getY(), null);
                 wi.setTemplateName(name);
+                wi.setItemType(type);
                 wi.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
                 gameWorld.getState().addWorldItem(wi);
             }

@@ -246,8 +246,10 @@ public class CombatSystem {
             if (info != null) {
                 int templateId = ((Number) info.get("item_template_id")).intValue();
                 String name = (String) info.get("name");
+                String type = (String) info.get("type");
                 WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
                 dropped.setTemplateName(name);
+                dropped.setItemType(type);
                 dropped.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
                 state.addWorldItem(dropped);
                 Logger.info("DEATH DROP (equipped): player=" + playerId + ", slot=" + slotType + ", worldItemId=" + worldItemId +
@@ -262,6 +264,7 @@ public class CombatSystem {
             long worldItemId = ((Number) row.get("world_item_id")).longValue();
             int templateId = ((Number) row.get("item_template_id")).intValue();
             String name = (String) row.get("name");
+            String type = (String) row.get("type");
 
             float[] pos = computeScatterPosition(baseX, baseY, index++);
             float dropX = pos[0];
@@ -272,7 +275,8 @@ public class CombatSystem {
 
             WorldItem dropped = new WorldItem(worldItemId, templateId, dropX, dropY, null);
             dropped.setTemplateName(name);
-                dropped.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
+			dropped.setItemType(type);
+			dropped.setHasMods(ItemModRepository.hasModsForWorldItem(worldItemId));
             state.addWorldItem(dropped);
             Logger.info("DEATH DROP (inventory): player=" + playerId + ", worldItemId=" + worldItemId +
                     ", invId=" + inventoryId + ", pos=(" + dropX + "," + dropY + ") unclaimed=" + unclaimed + " deleted=" + deleted);
