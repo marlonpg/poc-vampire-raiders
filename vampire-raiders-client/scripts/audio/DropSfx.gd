@@ -6,7 +6,7 @@ static var _player: AudioStreamPlayer = null
 
 static var _drop_sfx_by_type := {
 	"weapon": preload("res://sounds/weapon.mp3"),
-	"gold": preload("res://sounds/gold.mp3"),
+	"loot": preload("res://sounds/gold.mp3"),
 	"jewel": preload("res://sounds/jewel.mp3"),
 	"armor": preload("res://sounds/armor.mp3"),
 }
