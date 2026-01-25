@@ -6,10 +6,51 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class EquippedItemRepository {
+
+    // Cache: playerId -> equipped slot map
+    // Pattern mirrors EnemyItemRepository: lazy load + explicit invalidation after DB writes.
+    private static volatile Map<Integer, Map<String, Map<String, Object>>> cache = Collections.emptyMap();
+
+    public static synchronized void invalidateCacheForPlayer(int playerId) {
+        if (cache.isEmpty()) return;
+        Map<Integer, Map<String, Map<String, Object>>> next = new HashMap<>(cache);
+        next.remove(playerId);
+        cache = Collections.unmodifiableMap(next);
+    }
+
+    private static Map<String, Map<String, Object>> getCachedEquippedItems(int playerId) {
+        if (cache.isEmpty() || !cache.containsKey(playerId)) {
+            loadPlayerIntoCache(playerId);
+        }
+        return deepCopyEquippedItems(cache.getOrDefault(playerId, Collections.emptyMap()));
+    }
+
+    private static synchronized void loadPlayerIntoCache(int playerId) {
+        Map<String, Map<String, Object>> loaded = getEquippedItemsFromDb(playerId);
+        Map<Integer, Map<String, Map<String, Object>>> next = new HashMap<>(cache);
+        next.put(playerId, deepCopyEquippedItems(loaded));
+        cache = Collections.unmodifiableMap(next);
+    }
+
+    private static Map<String, Map<String, Object>> deepCopyEquippedItems(Map<String, Map<String, Object>> src) {
+        Map<String, Map<String, Object>> copy = new HashMap<>();
+        if (src == null) {
+            return copy;
+        }
+        for (Map.Entry<String, Map<String, Object>> e : src.entrySet()) {
+            if (e.getValue() == null) {
+                copy.put(e.getKey(), null);
+            } else {
+                copy.put(e.getKey(), new HashMap<>(e.getValue()));
+            }
+        }
+        return copy;
+    }
 
     public static boolean equipItem(int playerId, long inventoryId, String slotType) {
         String sql = "INSERT INTO equipped_items (player_id, " + slotType + ") " +
@@ -22,6 +63,9 @@ public class EquippedItemRepository {
             stmt.setLong(2, inventoryId);
             stmt.setLong(3, inventoryId);
             stmt.executeUpdate();
+
+            // DB changed; invalidate equipped cache for this player
+            invalidateCacheForPlayer(playerId);
             return true;
         } catch (SQLException e) {
             Logger.error("Failed to equip item: " + e.getMessage());
@@ -36,6 +80,9 @@ public class EquippedItemRepository {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, playerId);
             stmt.executeUpdate();
+
+            // DB changed; invalidate equipped cache for this player
+            invalidateCacheForPlayer(playerId);
             return true;
         } catch (SQLException e) {
             Logger.error("Failed to unequip item: " + e.getMessage());
@@ -44,6 +91,10 @@ public class EquippedItemRepository {
     }
 
     public static Map<String, Map<String, Object>> getEquippedItems(int playerId) {
+        return getCachedEquippedItems(playerId);
+    }
+
+    private static Map<String, Map<String, Object>> getEquippedItemsFromDb(int playerId) {
         String sql = "SELECT e.weapon, e.helmet, e.armor, e.boots, " +
                 "inv.id as inv_id, inv.slot_x, inv.slot_y, " +
                 "wi.id as world_item_id, wi.item_template_id, " +

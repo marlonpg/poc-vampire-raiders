@@ -8,6 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 
 public class WorldItemRepository {
 
@@ -63,14 +65,14 @@ public class WorldItemRepository {
         }
     }
 
-    public static java.util.Map<String, Object> getWorldItemInfo(long worldItemId) {
+    public static Map<String, Object> getWorldItemInfo(long worldItemId) {
         String sql = "SELECT wi.item_template_id, it.name, it.type FROM world_items wi JOIN item_templates it ON wi.item_template_id = it.id WHERE wi.id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setLong(1, worldItemId);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    var map = new java.util.HashMap<String, Object>();
+                    var map = new HashMap<String, Object>();
                     map.put("item_template_id", rs.getInt("item_template_id"));
                     map.put("name", rs.getString("name"));
                     map.put("type", rs.getString("type"));
