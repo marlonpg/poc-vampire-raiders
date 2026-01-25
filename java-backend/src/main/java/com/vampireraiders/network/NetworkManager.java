@@ -178,6 +178,16 @@ public class NetworkManager {
             case "heartbeat":
                 // Just update heartbeat (already done above)
                 break;
+            case "ping":
+                // Reply immediately so client can measure round-trip time (RTT)
+                JsonObject pong = new JsonObject();
+                pong.addProperty("type", "pong");
+                if (message.has("client_time_ms")) {
+                    pong.add("client_time_ms", message.get("client_time_ms"));
+                }
+                pong.addProperty("server_time_ms", System.currentTimeMillis());
+                sendToClient(client, pong.toString());
+                break;
             default:
                 Logger.debug("Unknown message type: " + type);
         }

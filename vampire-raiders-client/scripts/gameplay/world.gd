@@ -25,6 +25,11 @@ var local_level: int = 1
 var local_xp: int = 0
 var damage_container: Node2D = null
 
+# Perf / network overlay
+var perf_label: Label = null
+var perf_update_timer: float = 0.0
+var latest_rtt_ms: float = -1.0
+
 # Damage number tracking
 var enemy_last_health: Dictionary = {}  # Track previous health per enemy ID
 var player_last_health: int = 100  # Track previous player health
@@ -55,6 +60,19 @@ func _ready():
 	damage_container.name = "DamageContainer"
 	damage_container.z_index = 1000
 	add_child(damage_container)
+
+	# FPS + RTT overlay (top-left)
+	perf_label = Label.new()
+	perf_label.name = "PerfLabel"
+	perf_label.text = "FPS: -- | RTT: -- ms"
+	perf_label.position = Vector2(12, 12)
+	perf_label.z_index = 2000
+	perf_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	# Add to HUD so it stays in screen space
+	if has_node("HUD"):
+		$HUD.add_child(perf_label)
+	else:
+		add_child(perf_label)
 	
 	# Determine if we're server or client based on whether network_manager started as client
 	is_server_mode = not net_manager.is_client_mode() if net_manager else false
@@ -74,6 +92,8 @@ func _ready():
 			# Connect to network signals
 			net_manager.game_state_received.connect(_on_game_state_received)
 			net_manager.damage_event_received.connect(_on_damage_event_received)
+			if net_manager.has_signal("latency_updated"):
+				net_manager.latency_updated.connect(_on_latency_updated)
 			
 			# Wait for connection to be established (status = 2 = STATUS_CONNECTED)
 			var wait_time = 0.0
@@ -449,6 +469,20 @@ func _process(delta):
 	
 	# Trigger redraw for melee attacks
 	queue_redraw()
+
+	# Update FPS/RTT label ~4x/sec
+	if perf_label:
+		perf_update_timer += delta
+		if perf_update_timer >= 0.25:
+			perf_update_timer = 0.0
+			var fps := Engine.get_frames_per_second()
+			var rtt_text := "--"
+			if latest_rtt_ms >= 0.0:
+				rtt_text = str(int(latest_rtt_ms))
+			perf_label.text = "FPS: %d | RTT: %s ms" % [fps, rtt_text]
+
+func _on_latency_updated(rtt_ms: float) -> void:
+	latest_rtt_ms = rtt_ms
 
 func _draw():
 	"""Draw melee attack as a rotating stick (clock hand style) pointing at enemy"""

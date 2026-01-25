@@ -6,6 +6,7 @@ signal game_state_received(data: Dictionary)
 signal inventory_received(data: Dictionary)
 signal item_picked_up(world_item_id: int)
 signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2)
+signal latency_updated(rtt_ms: float)
 
 var socket: StreamPeerTCP
 var server_ip: String = ""
@@ -17,6 +18,12 @@ var connection_time: float = 0.0
 var last_status: int = -1
 var heartbeat_timer: float = 0.0
 var heartbeat_interval: float = 5.0
+
+# RTT (ping) tracking
+var last_rtt_ms: float = -1.0
+var ping_timer: float = 0.0
+var ping_interval: float = 1.0
+var pending_ping_client_ms: int = -1
 
 func _ready():
 	print("[NETWORK] Ready (TCP)")
@@ -65,6 +72,16 @@ func _process(delta):
 		_on_connected_to_server()
 	
 	if status == StreamPeerTCP.STATUS_CONNECTED or (connected and status == StreamPeerTCP.STATUS_CONNECTING):
+		# Send ping periodically to estimate RTT (ms)
+		ping_timer += delta
+		if ping_timer >= ping_interval:
+			ping_timer = 0.0
+			var now_ms := Time.get_ticks_msec()
+			# Avoid stacking multiple pings; if one is stuck, allow a new one after 5s
+			if pending_ping_client_ms == -1 or (now_ms - pending_ping_client_ms) > 5000:
+				pending_ping_client_ms = now_ms
+				send_json({"type": "ping", "client_time_ms": now_ms})
+
 		# Send heartbeat periodically
 		heartbeat_timer += delta
 		if heartbeat_timer >= heartbeat_interval:
@@ -112,6 +129,15 @@ func _handle_server_message(data: Dictionary):
 			var x = data.get("x", 0.0)
 			var y = data.get("y", 0.0)
 			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y))
+		"pong":
+			var echoed_ms = int(data.get("client_time_ms", -1))
+			if echoed_ms != -1:
+				var now_ms := Time.get_ticks_msec()
+				last_rtt_ms = float(now_ms - echoed_ms)
+				latency_updated.emit(last_rtt_ms)
+				# Clear pending ping if this matches the latest
+				if pending_ping_client_ms == echoed_ms:
+					pending_ping_client_ms = -1
 		_:
 			pass
 
