@@ -2,6 +2,7 @@ extends Area2D
 
 @export var item_id: int
 @export var item_name: String = "Item"
+@export var item_type: String = "" # e.g. "jewel", "loot", "weapon", "armor"
 
 @onready var label: Label = $Label
 @onready var color_rect: ColorRect = $ColorRect
@@ -14,9 +15,15 @@ var has_mods: bool = false
 # Background behind the item name text (always black)
 var name_bg: ColorRect = null
 
-# Map item names to text colors; default is white if not found
+# Optional explicit per-name color overrides; default is white if not found
 var name_color_map := {
-	"Gold Coin": Color(1, 1, 0, 1)  # yellow
+	"Gold Coin": Color(1, 1, 0, 1)
+}
+
+# Generic per-type mapping (lower-case). Add new types/colors here.
+var type_color_map := {
+	"jewel": Color(1, 1, 0, 1),
+	"loot": Color(1, 1, 0, 1)
 }
 
 const TILE_HALF := 16
@@ -101,13 +108,19 @@ func _apply_name_style() -> void:
 	var lbl := _get_label()
 	if lbl == null:
 		return
-	# If item has mods, its name should be blue (unless an explicit mapping exists)
-	if has_mods and not name_color_map.has(item_name):
+	# If item has mods, its name should be blue.
+	if has_mods:
 		lbl.add_theme_color_override("font_color", Color(0.40, 0.70, 1.00, 1))
 		return
-	# Set text color based on the item name mapping; default to white
-	var col: Color = name_color_map.get(item_name, Color(1, 1, 1, 1))
-	lbl.add_theme_color_override("font_color", col)
+
+	# Otherwise use per-type mapping.
+	var t := "" if item_type == null else str(item_type).to_lower()
+	if t != "" and type_color_map.has(t):
+		lbl.add_theme_color_override("font_color", type_color_map[t])
+		return
+
+	# Default to white
+	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 
 func _update_name_bg() -> void:
 	var lbl := _get_label()
@@ -167,5 +180,13 @@ func set_has_mods(value: bool) -> void:
 	if has_mods == value:
 		return
 	has_mods = value
+	_apply_name_style()
+	_update_name_bg()
+
+func set_item_type(value: String) -> void:
+	var normalized := "" if value == null else str(value).to_lower()
+	if item_type == normalized:
+		return
+	item_type = normalized
 	_apply_name_style()
 	_update_name_bg()

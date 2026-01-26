@@ -259,6 +259,8 @@ func _update_world_items(items_data: Array):
 				node.item_id = item_id
 				node.item_name = item_data.get("name", "Item")
 				node.quantity = item_data.get("quantity", 1)
+				if node.has_method("set_item_type"):
+					node.set_item_type(item_data.get("type", ""))
 				if node.has_method("set_has_mods"):
 					node.set_has_mods(item_data.get("has_mods", false))
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
@@ -271,6 +273,8 @@ func _update_world_items(items_data: Array):
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
 				node.set_name_and_color(item_data.get("name", "Item"))
 				node.set_quantity(item_data.get("quantity", 1))
+				if node.has_method("set_item_type"):
+					node.set_item_type(item_data.get("type", ""))
 				if node.has_method("set_has_mods"):
 					node.set_has_mods(item_data.get("has_mods", false))
 
