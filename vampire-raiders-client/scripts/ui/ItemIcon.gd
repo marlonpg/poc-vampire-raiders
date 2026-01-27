@@ -18,7 +18,6 @@ func _ready():
 	# Debug: print item data
 	var is_stackable = item_data.get("stackable", false)
 	var quantity = item_data.get("quantity", 1)
-	print("ItemIcon ready - Name: %s, Stackable: %s, Quantity: %d" % [item_data.get("name", "Unknown"), is_stackable, quantity])
 	
 	# Create quantity label in top right corner (deferred to allow layout)
 	if is_stackable and quantity > 1:
@@ -42,7 +41,51 @@ func _build_tooltip() -> String:
 		parts.append("Damage: %d" % int(item_data.get("damage", 0)))
 	if item_data.has("defense") and int(item_data.get("defense", 0)) > 0:
 		parts.append("Defense: %d" % int(item_data.get("defense", 0)))
+	var mods = item_data.get("mods", [])
+	if typeof(mods) == TYPE_ARRAY and mods.size() > 0:
+		for m in mods:
+			if typeof(m) == TYPE_DICTIONARY:
+				parts.append("Mod: %s" % m.get("mod_name", ""))
 	return "\n".join(parts)
+
+func _make_custom_tooltip(_for_text):
+	# Custom tooltip so we can color mods blue.
+	var panel := PanelContainer.new()
+	var vb := VBoxContainer.new()
+	panel.add_child(vb)
+	
+	var title := Label.new()
+	title.text = "%s (%s)" % [item_data.get("name", "Item"), item_data.get("rarity", "common")]
+	title.add_theme_font_size_override("font_size", 14)
+	vb.add_child(title)
+	
+	if item_data.has("type"):
+		var type_lbl := Label.new()
+		type_lbl.text = "Type: %s" % item_data.get("type")
+		vb.add_child(type_lbl)
+	
+	if item_data.has("damage") and int(item_data.get("damage", 0)) > 0:
+		var dmg_lbl := Label.new()
+		dmg_lbl.text = "Damage: %d" % int(item_data.get("damage", 0))
+		vb.add_child(dmg_lbl)
+	
+	if item_data.has("defense") and int(item_data.get("defense", 0)) > 0:
+		var def_lbl := Label.new()
+		def_lbl.text = "Defense: %d" % int(item_data.get("defense", 0))
+		vb.add_child(def_lbl)
+	
+	# Mods shown in blue, below damage/defense.
+	var mods = item_data.get("mods", [])
+	if typeof(mods) == TYPE_ARRAY and mods.size() > 0:
+		for m in mods:
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			var mod_lbl := Label.new()
+			mod_lbl.text = "Mod: %s" % m.get("mod_name", "")
+			mod_lbl.add_theme_color_override("font_color", Color(0.40, 0.70, 1.00, 1))
+			vb.add_child(mod_lbl)
+
+	return panel
 
 func gui_input(event: InputEvent) -> void:
 	# Handle mouse button clicks

@@ -2,6 +2,7 @@ extends Area2D
 
 @export var item_id: int
 @export var item_name: String = "Item"
+@export var item_type: String = "" # e.g. "jewel", "loot", "weapon", "armor"
 
 @onready var label: Label = $Label
 @onready var color_rect: ColorRect = $ColorRect
@@ -9,12 +10,20 @@ extends Area2D
 var sprite_rect: TextureRect = null
 var quantity: int = 1
 
+var has_mods: bool = false
+
 # Background behind the item name text (always black)
 var name_bg: ColorRect = null
 
-# Map item names to text colors; default is white if not found
+# Optional explicit per-name color overrides; default is white if not found
 var name_color_map := {
-	"Gold Coin": Color(1, 1, 0, 1)  # yellow
+	"Gold Coin": Color(1, 1, 0, 1)
+}
+
+# Generic per-type mapping (lower-case). Add new types/colors here.
+var type_color_map := {
+	"jewel": Color(1, 1, 0, 1),
+	"loot": Color(1, 1, 0, 1)
 }
 
 const TILE_HALF := 16
@@ -33,6 +42,14 @@ func _ready():
 		label.resized.connect(_update_name_bg)
 	_load_sprite_if_available()
 	_position_name_above_item()
+
+func _get_label() -> Label:
+	# `set_has_mods` (and other setters) can be called immediately after instancing,
+	# before this node is inside the scene tree, so @onready vars may still be null.
+	if label != null:
+		return label
+	label = get_node_or_null("Label")
+	return label
 
 func _load_sprite_if_available() -> void:
 	# Avoid reloading if we already have the sprite
@@ -74,6 +91,9 @@ func _load_sprite_if_available() -> void:
 	_position_name_above_item()
 
 func _create_name_background() -> void:
+	var lbl := _get_label()
+	if lbl == null:
+		return
 	if name_bg == null:
 		name_bg = ColorRect.new()
 		name_bg.color = Color(0, 0, 0, 0.50)  # black, slightly transparent
@@ -82,31 +102,48 @@ func _create_name_background() -> void:
 		name_bg.z_index = 2
 		add_child(name_bg)
 		# Ensure label renders above background
-		label.z_index = 3
+		lbl.z_index = 3
 
 func _apply_name_style() -> void:
-	# Set text color based on the item name mapping; default to white
-	var col: Color = name_color_map.get(item_name, Color(1, 1, 1, 1))
-	label.add_theme_color_override("font_color", col)
+	var lbl := _get_label()
+	if lbl == null:
+		return
+	# If item has mods, its name should be blue.
+	if has_mods:
+		lbl.add_theme_color_override("font_color", Color(0.40, 0.70, 1.00, 1))
+		return
+
+	# Otherwise use per-type mapping.
+	var t := "" if item_type == null else str(item_type).to_lower()
+	if t != "" and type_color_map.has(t):
+		lbl.add_theme_color_override("font_color", type_color_map[t])
+		return
+
+	# Default to white
+	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 
 func _update_name_bg() -> void:
-	if name_bg == null or label == null:
+	var lbl := _get_label()
+	if name_bg == null or lbl == null:
 		return
 	# Size background to content siaze (no padding)
-	var content = label.get_minimum_size()
+	var content = lbl.get_minimum_size()
 	if content == Vector2.ZERO:
-		content = label.size
+		content = lbl.size
 	name_bg.size = content
 	# Position background exactly under the label
-	name_bg.position = label.position
+	name_bg.position = lbl.position
 
 func _position_name_above_item() -> void:
+	var lbl := _get_label()
+	if lbl == null:
+		return
 	# Center the label horizontally and place it above the item sprite
-	var content = label.get_minimum_size()
+	var content = lbl.get_minimum_size()
 	if content == Vector2.ZERO:
-		content = label.size
+		content = lbl.size
 	var y_base := -TILE_HALF if sprite_rect != null else 0
-	label.position = Vector2(-content.x / 2.0, y_base - content.y - LABEL_SPACING)
+	lbl.position = Vector2(-content.x / 2.0, y_base - content.y - LABEL_SPACING)
 	_update_name_bg()
 
 func set_name_and_color(name: String):
@@ -114,7 +151,9 @@ func set_name_and_color(name: String):
 		# Name unchanged; skip re-applying styles and sprite load
 		return
 	item_name = name
-	label.text = name
+	var lbl := _get_label()
+	if lbl != null:
+		lbl.text = name
 	_apply_name_style()
 	_update_name_bg()
 	_position_name_above_item()
@@ -125,11 +164,29 @@ func set_highlight(active: bool):
 
 func set_quantity(qty: int) -> void:
 	quantity = qty
+	var lbl := _get_label()
+	if lbl == null:
+		return
 	# Update label to show quantity if more than 1
 	if quantity > 1:
-		label.text = "%s (x%d)" % [item_name, quantity]
+		lbl.text = "%s (x%d)" % [item_name, quantity]
 	else:
-		label.text = item_name
+		lbl.text = item_name
 	_apply_name_style()
 	_update_name_bg()
 	_position_name_above_item()
+
+func set_has_mods(value: bool) -> void:
+	if has_mods == value:
+		return
+	has_mods = value
+	_apply_name_style()
+	_update_name_bg()
+
+func set_item_type(value: String) -> void:
+	var normalized := "" if value == null else str(value).to_lower()
+	if item_type == normalized:
+		return
+	item_type = normalized
+	_apply_name_style()
+	_update_name_bg()

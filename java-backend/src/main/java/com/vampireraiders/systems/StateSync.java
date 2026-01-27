@@ -76,6 +76,25 @@ public class StateSync {
         }
         message.add("bullets", bulletsArray);
 
+        // Serialize melee attacks
+        long currentTimeMs = System.currentTimeMillis();
+        JsonArray meleeArray = new JsonArray();
+        for (MeleeAttack attack : state.getAllMeleeAttacks()) {
+            if (attack.isActive(currentTimeMs)) {
+                JsonObject meleeObj = new JsonObject();
+                meleeObj.addProperty("id", attack.getId());
+                meleeObj.addProperty("player_id", attack.getPlayerId());
+                meleeObj.addProperty("x", attack.getX());
+                meleeObj.addProperty("y", attack.getY());
+                meleeObj.addProperty("radius", attack.getRadius());
+                meleeObj.addProperty("start_time", attack.getStartTimeMs());
+                meleeObj.addProperty("duration_ms", attack.getDurationMs());
+                meleeObj.addProperty("direction_degrees", attack.getDirectionDegrees());
+                meleeArray.add(meleeObj);
+            }
+        }
+        message.add("melee_attacks", meleeArray);
+
         // Serialize world items (unclaimed drops)
         JsonArray worldItemsArray = new JsonArray();
         for (WorldItem item : state.getWorldItems()) {
@@ -83,9 +102,11 @@ public class StateSync {
             itemObj.addProperty("id", item.getId());
             itemObj.addProperty("item_template_id", item.getItemTemplateId());
             itemObj.addProperty("name", item.getTemplateName() != null ? item.getTemplateName() : "Item");
+            itemObj.addProperty("type", item.getItemType() != null ? item.getItemType() : "");
             itemObj.addProperty("x", item.getX());
             itemObj.addProperty("y", item.getY());
             itemObj.addProperty("claimed_by", item.getClaimedBy());
+            itemObj.addProperty("has_mods", item.hasMods());
             worldItemsArray.add(itemObj);
         }
         message.add("world_items", worldItemsArray);

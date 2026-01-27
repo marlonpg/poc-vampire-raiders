@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS item_templates (
   defense INT DEFAULT 0,
   attack_speed FLOAT DEFAULT 1.0,
   attack_range FLOAT DEFAULT 200.0,
+  attack_type VARCHAR(20), -- melee, ranged, etc.
   rarity VARCHAR(20) DEFAULT 'common', -- common, uncommon, rare, epic, legendary
   stackable BOOLEAN DEFAULT FALSE,
   description TEXT,
@@ -144,30 +145,31 @@ CREATE TABLE IF NOT EXISTS item_mods (
 );
 
 -- Sample Item Templates
-INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 0, 2.0, 150.0, 'common', 'A basic iron dagger', FALSE),
-('Small Axe', 'weapon', 15, 0, 1.0, 200.0, 'common', 'A small axe', FALSE),
-('Small Bow', 'weapon', 8, 0, 1.5, 400.0, 'common', 'A small bow', FALSE),
-('Steel Sword', 'weapon', 20, 0, 1.0, 250.0, 'common', 'A well-crafted steel sword', FALSE),
-('Katana', 'weapon', 15, 0, 1.5, 250.0, 'common', 'A katana from the east', FALSE),
-('Leather Armor', 'armor', 0, 5, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
-('Iron Armor', 'armor', 0, 15, 1.0, 200.0, 'common', 'Basic iron armor', FALSE),
-('Plate Armor', 'armor', 0, 30, 1.0, 200.0, 'common', 'Sturdy plate armor', FALSE),
-('Health Potion', 'consumable', 0, 0, 1.0, 200.0, 'common', 'Restores 50 health', TRUE),
-('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Increase item in 1 level', FALSE),
-('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, 'rare', 'Add or Modify mods from items', FALSE),
-('Gold Coin', 'loot', 0, 0, 1.0, 200.0, 'common', 'Currency', TRUE);
+INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, attack_type, rarity, description, stackable) VALUES
+('Iron Dagger', 'weapon', 10, 0, 1.0, 50.0, 'melee', 'common', 'A basic iron dagger', FALSE),
+('Small Axe', 'weapon', 15, 0, 0.8, 70.0, 'melee', 'common', 'A small axe', FALSE),
+('Small Axe x1', 'weapon', 15, 0, 0.8, 70.0, 'melee', 'common', 'A small axe', FALSE),
+('Small Bow', 'weapon', 8, 0, 1.2, 200.0, 'ranged', 'common', 'A small bow', FALSE),
+('Steel Sword', 'weapon', 20, 0, 1.0, 80.0, 'melee', 'common', 'A well-crafted steel sword', FALSE),
+('Katana', 'weapon', 15, 0, 1.4, 80.0, 'melee', 'common', 'A katana from the east', FALSE),
+('Leather Armor', 'armor', 0, 5, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
+('Iron Armor', 'armor', 0, 15, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
+('Plate Armor', 'armor', 0, 30, 0, 0, NULL, 'common', 'Sturdy plate armor', FALSE),
+('Health Potion', 'consumable', 0, 0, 1.0, 200.0, NULL, 'common', 'Restores 50 health', TRUE),
+('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Increase item in 1 level', FALSE),
+('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Add or Modify mods from items', FALSE),
+('Gold Coin', 'loot', 0, 0, 1.0, 200.0, NULL, 'common', 'Currency', TRUE);
 
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
-('Spider',   2, 40, 1, 8, 1.0, 70.0, 1.0, 15),
-('Worm',     4, 80, 3, 17, 0.8, 100.0, 0.8, 60),
-('Wild Dog', 6, 120, 6, 26, 1.5, 150.0, 0.3, 100),
-('Hound',    9, 160, 9, 35, 1.0, 100.0, 0.5, 140),
-('Elite Wild Dog', 14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
-('Giant',     17, 400, 18, 62, 0.8, 50.0, 3.0, 200),
-('Skeleton', 19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
+('Spider',           2,  40,  1,  8, 0.5,  90.0, 1.5,  15),
+('Worm',             4,  80,  3, 17, 0.8, 100.0, 1.2,  60),
+('Wild Dog',         6, 120,  6, 26, 0.2, 150.0, 1.0, 100),
+('Hound',            9, 160,  9, 35, 1.0, 100.0, 0.5, 140),
+('Elite Wild Dog',  14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
+('Giant',           17, 400, 18, 62, 0.8,  50.0, 3.0, 200),
+('Skeleton',        19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample enemy item drops with rates
@@ -185,6 +187,9 @@ INSERT INTO mod_templates (mod_type, mod_value, mod_name) VALUES
 ('LEVEL', 1, 'Enhanced I'),
 ('LEVEL', 2, 'Enhanced II'),
 ('LEVEL', 3, 'Enhanced III'),
+('LEVEL', 4, 'Enhanced IV'),
+('LEVEL', 5, 'Enhanced V'),
+('LEVEL', 6, 'Enhanced VI'),
 ('LIFE', 50, 'Vitality'),
 ('DEFENSE', 5, 'Fortified'),
 ('DAMAGE', 10, 'Increase'),

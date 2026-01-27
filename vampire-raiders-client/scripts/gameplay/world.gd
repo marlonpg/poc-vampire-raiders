@@ -12,6 +12,7 @@ var player_instance: Node2D = null
 var net_manager: Node = null
 var enemies: Dictionary = {}  # ID -> enemy node
 var bullets: Dictionary = {}  # ID -> bullet node
+var melee_attacks: Dictionary = {}  # ID -> melee attack data
 var other_players: Dictionary = {}  # peer_id -> player node (excluding local)
 var world_items: Dictionary = {}  # id -> world item node
 var last_input_dir: Vector2 = Vector2.ZERO
@@ -23,6 +24,15 @@ var local_max_health: int = 100
 var local_level: int = 1
 var local_xp: int = 0
 var damage_container: Node2D = null
+const DROP_SFX_MAX_DISTANCE := 450.0
+var drop_sfx_enabled: bool = false
+
+const DropSfx = preload("res://scripts/audio/DropSfx.gd")
+
+# Perf / network overlay
+var perf_label: Label = null
+var perf_update_timer: float = 0.0
+var latest_rtt_ms: float = -1.0
 
 # Damage number tracking
 var enemy_last_health: Dictionary = {}  # Track previous health per enemy ID
@@ -54,6 +64,19 @@ func _ready():
 	damage_container.name = "DamageContainer"
 	damage_container.z_index = 1000
 	add_child(damage_container)
+
+	# FPS + RTT overlay (top-left)
+	perf_label = Label.new()
+	perf_label.name = "PerfLabel"
+	perf_label.text = "FPS: -- | RTT: -- ms"
+	perf_label.position = Vector2(12, 12)
+	perf_label.z_index = 2000
+	perf_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	# Add to HUD so it stays in screen space
+	if has_node("HUD"):
+		$HUD.add_child(perf_label)
+	else:
+		add_child(perf_label)
 	
 	# Determine if we're server or client based on whether network_manager started as client
 	is_server_mode = not net_manager.is_client_mode() if net_manager else false
@@ -73,6 +96,8 @@ func _ready():
 			# Connect to network signals
 			net_manager.game_state_received.connect(_on_game_state_received)
 			net_manager.damage_event_received.connect(_on_damage_event_received)
+			if net_manager.has_signal("latency_updated"):
+				net_manager.latency_updated.connect(_on_latency_updated)
 			
 			# Wait for connection to be established (status = 2 = STATUS_CONNECTED)
 			var wait_time = 0.0
@@ -142,9 +167,25 @@ func _on_game_state_received(data: Dictionary):
 	
 	# Update bullets
 	_update_bullets(bullets_data)
+	
+	# Update melee attacks
+	var melee_data = data.get("melee_attacks", [])
+	_update_melee_attacks(melee_data)
 
 	# Update world items (drops)
 	_update_world_items(world_items_data)
+
+	# Enable drop SFX after first state so we don't play a burst on join.
+	if not drop_sfx_enabled:
+		drop_sfx_enabled = true
+
+func _play_world_drop_sfx(item_data: Dictionary) -> void:
+	if not drop_sfx_enabled:
+		return
+	var listener_pos := Vector2.INF
+	if player_instance != null:
+		listener_pos = player_instance.position
+	DropSfx.play_drop_for_item(item_data, self, listener_pos, DROP_SFX_MAX_DISTANCE)
 
 func _update_players(players_data: Array) -> void:
 	"""Spawn/update/remove player sprites for all peers."""
@@ -212,11 +253,16 @@ func _update_world_items(items_data: Array):
 		var item_id = item_data.get("id")
 		server_ids[item_id] = true
 		if not world_items.has(item_id):
+			_play_world_drop_sfx(item_data)
 			if world_item_scene:
 				var node = world_item_scene.instantiate()
 				node.item_id = item_id
 				node.item_name = item_data.get("name", "Item")
 				node.quantity = item_data.get("quantity", 1)
+				if node.has_method("set_item_type"):
+					node.set_item_type(item_data.get("type", ""))
+				if node.has_method("set_has_mods"):
+					node.set_has_mods(item_data.get("has_mods", false))
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
 				node.connect("input_event", Callable(self, "_on_world_item_input").bind(item_id))
 				add_child(node)
@@ -227,6 +273,10 @@ func _update_world_items(items_data: Array):
 				node.position = Vector2(item_data.get("x", 0), item_data.get("y", 0))
 				node.set_name_and_color(item_data.get("name", "Item"))
 				node.set_quantity(item_data.get("quantity", 1))
+				if node.has_method("set_item_type"):
+					node.set_item_type(item_data.get("type", ""))
+				if node.has_method("set_has_mods"):
+					node.set_has_mods(item_data.get("has_mods", false))
 
 	# Remove items that disappeared server-side (picked up)
 	var to_remove := []
@@ -366,6 +416,44 @@ func _update_bullets(bullets_data: Array):
 	for bullet_id in to_remove:
 		bullets.erase(bullet_id)
 
+func _update_melee_attacks(melee_data: Array):
+	"""Update melee attack data from server"""
+	# Track which attacks still exist on server
+	var server_ids = {}
+	var current_time_ms = Time.get_ticks_msec()
+	for attack in melee_data:
+		var attack_id = attack.get("id")
+		server_ids[attack_id] = true
+
+		# Preserve a local (monotonic) start time so we don't mix server epoch time
+		# with client uptime ticks.
+		if melee_attacks.has(attack_id):
+			var existing = melee_attacks[attack_id]
+			if typeof(existing) == TYPE_DICTIONARY and existing.has("_client_start_ms"):
+				attack["_client_start_ms"] = existing["_client_start_ms"]
+
+		if not attack.has("_client_start_ms"):
+			attack["_client_start_ms"] = current_time_ms
+
+		melee_attacks[attack_id] = attack
+	
+	# Remove attacks that no longer exist on server or have expired
+	var to_remove = []
+	for attack_id in melee_attacks.keys():
+		var attack = melee_attacks[attack_id]
+		var start_ms = int(attack.get("_client_start_ms", current_time_ms))
+		var elapsed = current_time_ms - start_ms
+		var duration = int(attack.get("duration_ms", 1))
+		duration = max(duration, 1)
+		
+		# Remove if not in server list OR if expired
+		if not attack_id in server_ids or elapsed >= duration:
+			to_remove.append(attack_id)
+	
+	for attack_id in to_remove:
+		print("[MELEE] Removing attack id=%s" % [attack_id])
+		melee_attacks.erase(attack_id)
+
 func _update_health_ui(current: int, max_value: int):
 	if health_fill == null or health_label == null:
 		return
@@ -402,7 +490,89 @@ func _process(delta):
 			net_manager.send_player_input(input_dir.x, input_dir.y)
 			last_input_dir = input_dir
 			input_send_timer = 0.0
+	
+	# Trigger redraw for melee attacks
+	queue_redraw()
 
+	# Update FPS/RTT label ~4x/sec
+	if perf_label:
+		perf_update_timer += delta
+		if perf_update_timer >= 0.25:
+			perf_update_timer = 0.0
+			var fps := Engine.get_frames_per_second()
+			var rtt_text := "--"
+			if latest_rtt_ms >= 0.0:
+				rtt_text = str(int(latest_rtt_ms))
+			perf_label.text = "FPS: %d | RTT: %s ms" % [fps, rtt_text]
+
+func _on_latency_updated(rtt_ms: float) -> void:
+	latest_rtt_ms = rtt_ms
+
+func _draw():
+	"""Draw melee attack as a rotating stick (clock hand style) pointing at enemy"""
+	var current_time_ms = Time.get_ticks_msec()
+	var attacks_to_remove = []
+	
+	for attack_id in melee_attacks:
+		var attack = melee_attacks[attack_id]
+		var duration = int(attack.get("duration_ms", 1))
+		duration = max(duration, 1)
+		var start_ms = int(attack.get("_client_start_ms", current_time_ms))
+		var elapsed = current_time_ms - start_ms
+		var progress = clamp(float(elapsed) / float(duration), 0.0, 1.0)
+		
+		if progress >= 1.0:
+			# Attack finished, mark for removal
+			attacks_to_remove.append(attack_id)
+			continue
+		
+		# Get player's CURRENT position instead of attack creation position
+		var player_id = attack["player_id"]
+		var player = null
+		
+		# Find the player in other_players dict or use local player
+		if net_manager and player_id == net_manager.peer_id and is_instance_valid(player_instance):
+			player = player_instance
+		elif player_id in other_players:
+			player = other_players[player_id]
+		
+		if player == null:
+			continue
+		
+		var x = player.position.x
+		var y = player.position.y
+		var radius = attack["radius"]
+		var direction = float(attack.get("direction_degrees", 0.0))  # Direction to enemy in degrees
+		direction = wrapf((direction), 0.0, 360.0)
+		# The stick should sweep in a ±60° cone around the target direction
+		# But we need to also account for initial offset so the swing starts on the left side
+		# Swing from -90° (full left) through the target to +90° (full right)
+		
+		var swing_start_angle = wrapf((direction - 60.0), 0.0, 360.0)
+		var swing_end_angle   = wrapf((direction + 60.0), 0.0, 360.0)
+		#_log_client("direction=%s, radius=%s, swing_start_angle=%s, swing_end_angle=%s" % [direction, radius, swing_start_angle, swing_end_angle])
+		# Current angle based on progress (0.0 to 1.0)
+		# This makes it sweep from left side through target to right side
+		var swing_end_for_interp = swing_end_angle
+		if swing_end_for_interp < swing_start_angle:
+			swing_end_for_interp += 360.0
+		var current_angle = swing_start_angle + (swing_end_for_interp - swing_start_angle) * progress
+		current_angle = wrapf(current_angle, 0.0, 360.0)
+		var angle_rad = deg_to_rad(current_angle)
+		
+		#_log_client("current_angle=%s, angle_rad=%s" % [current_angle, angle_rad])
+		
+		# Calculate end point of the stick
+		var end_x = x + radius * cos(angle_rad)
+		var end_y = y + radius * sin(angle_rad)
+		
+		# Draw the stick as a line from center to endpoint
+		var color = Color(0.9, 0.3, 0.2, 0.8)  # Red
+		draw_line(Vector2(x, y), Vector2(end_x, end_y), color, 8.0)
+	
+	# Remove expired attacks
+	for attack_id in attacks_to_remove:
+		melee_attacks.erase(attack_id)
 
 func _setup_spawner():
 	# TCP mode doesn't use MultiplayerSpawner - server is authoritative Java backend

@@ -21,6 +21,8 @@ var equipped_items = {
 var drag_from_index: int = -1  # Track which item is being dragged from inventory
 var drag_from_equipped: String = ""  # Track which equipped item is being dragged
 
+const DropSfx = preload("res://scripts/audio/DropSfx.gd")
+
 func _ready():
 	if grid_container == null:
 		return
@@ -250,6 +252,24 @@ func _move_item(from_index: int, to_index: int):
 	var from_item = inventory_items[from_index]
 	var to_item = inventory_items.get(to_index)
 	
+	# Jewel application: dropping a jewel on a weapon/armor applies it instead of swapping slots.
+	if from_item.get("type") == "jewel" and to_item != null:
+		var target_type := str(to_item.get("type", ""))
+		if target_type == "weapon" or target_type == "armor":
+			if net_manager and from_item.has("inventory_id") and to_item.has("inventory_id"):
+				net_manager.send_json({
+					"type": "apply_jewel",
+					"jewel_inventory_id": from_item["inventory_id"],
+					"target_inventory_id": to_item["inventory_id"],
+				})
+				# Auto-refresh inventory to reflect consumption + mod changes
+				await get_tree().create_timer(0.1).timeout
+				if net_manager:
+					net_manager.request_inventory()
+			return
+		# Jewel dropped on a non-weapon/armor item: ignore (no swap)
+		return
+	
 	# Send move request to server first
 	if net_manager and from_item.has("inventory_id"):
 		var slot_x = to_index % GRID_COLS
@@ -286,6 +306,7 @@ func _request_drop_from_inventory(index: int):
 		return
 	
 	var item = inventory_items[index]
+	DropSfx.play_drop_for_item(item, self)
 	
 	if net_manager and item.has("inventory_id"):
 		net_manager.send_json({
