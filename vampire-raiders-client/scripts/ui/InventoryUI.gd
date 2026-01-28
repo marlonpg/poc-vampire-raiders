@@ -4,12 +4,21 @@ const GRID_COLS = 6
 const GRID_ROWS = 12
 const CELL_SIZE = 50
 
-@onready var grid_container = $Panel/MarginContainer/VBoxContainer/InventoryPanel/GridWrapper/GridContainer
-@onready var weapon_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/WeaponSlot
-@onready var gloves_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/GlovesSlot
-@onready var armor_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/ArmorSlot
-@onready var boots_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/BootsSlot
+@onready var grid_container = $Panel/MarginContainer/HBoxContainer/VBoxContainer/InventoryPanel/GridWrapper/GridContainer
+@onready var weapon_slot = $Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/WeaponSlot
+@onready var gloves_slot = $Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/GlovesSlot
+@onready var armor_slot = $Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/ArmorSlot
+@onready var boots_slot = $Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/BootsSlot
 @onready var net_manager: Node = get_node_or_null("/root/NetworkManager")
+
+# Player stats labels
+@onready var player_name_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/PlayerNameLabel
+@onready var level_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/LevelLabel
+@onready var max_health_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/MaxHealthLabel
+@onready var attack_damage_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/AttackDamageLabel
+@onready var defense_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/DefenseLabel
+@onready var move_speed_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/MoveSpeedLabel
+@onready var attack_speed_label = $Panel/MarginContainer/HBoxContainer/StatsPanel/AttackSpeedLabel
 
 var inventory_items = {} # {slot_index: item_data}
 var equipped_items = {
@@ -139,6 +148,40 @@ func _on_inventory_received(data: Dictionary):
 		if not equipped.has(slot_type) or equipped[slot_type] == null:
 			equipped_items[slot_type] = null
 			_update_equipment_slot_display(slot_type)
+	
+	# Update player stats display
+	_update_player_stats_display(data)
+
+func _update_player_stats_display(data: Dictionary):
+	"""Update the player stats display on the left side"""
+	if not is_instance_valid(player_name_label):
+		return
+	
+	# Get player name from GlobalAuth or NetworkManager
+	var player_name = "Unknown"
+	var global_auth = get_node_or_null("/root/GlobalAuth")
+	if global_auth and global_auth.has_meta("username"):
+		player_name = global_auth.get_meta("username")
+	elif global_auth and "username" in global_auth:
+		player_name = global_auth.username
+	
+	# Get stats from inventory data
+	var player_data = data.get("player", {})
+	var level = player_data.get("level", 1)
+	var max_health = player_data.get("max_health", 100)
+	var attack_damage = player_data.get("attack_damage", 0)
+	var defense = player_data.get("defense", 0)
+	var move_speed = player_data.get("move_speed", 100)
+	var attack_speed = player_data.get("attack_speed", 1.0)
+	
+	# Update labels
+	player_name_label.text = "%s stats" % player_name
+	level_label.text = "Level: %d" % level
+	max_health_label.text = "Max Health: %d" % max_health
+	attack_damage_label.text = "Attack Dmg: %d" % attack_damage
+	defense_label.text = "Defense: %d" % defense
+	move_speed_label.text = "Move Speed: %d" % move_speed
+	attack_speed_label.text = "Attack Speed: %.2f" % attack_speed
 
 func _place_item_at(item_data: Dictionary, grid_index: int):
 	"""Place an item in the grid"""

@@ -499,6 +499,16 @@ public class NetworkManager {
         }
         payload.add("equipped", equippedObj);
 
+        // Add player stats
+        JsonObject playerObj = new JsonObject();
+        playerObj.addProperty("level", player.getLevel());
+        playerObj.addProperty("max_health", player.getMaxHealth());
+        playerObj.addProperty("attack_damage", player.getCachedTotalDamage());
+        playerObj.addProperty("defense", player.getCachedTotalDefense());
+        playerObj.addProperty("move_speed", (int) player.getMoveSpeed());
+        playerObj.addProperty("attack_speed", player.getEquippedAttackSpeed());
+        payload.add("player", playerObj);
+
         Logger.info("GET_INVENTORY: Sending " + arr.size() + " items and " + equipped.size() + " equipped items to client");
         sendToClient(client, payload.toString());
     }
