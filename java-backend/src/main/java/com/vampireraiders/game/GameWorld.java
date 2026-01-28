@@ -132,7 +132,7 @@ public class GameWorld {
             for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
                 if (bullet.collidedWith(enemy)) {
                     Player shooter = state.getPlayer(bullet.getShooterId());
-                    int bulletDamage = calculatePlayerDamage(shooter);
+                    int bulletDamage = shooter.getCachedTotalDamage();
                     int effectiveDamage = Math.max(1, bulletDamage - enemy.getDefense());
                     System.out.println("[COLLISION] Bullet hit enemy! Base Damage: " + bulletDamage + ", Enemy Defense: " + enemy.getDefense() + ", Effective Damage: " + effectiveDamage + ", Enemy health: " + enemy.getHealth() + ", Alive: " + enemy.isAlive());
                     
@@ -177,7 +177,7 @@ public class GameWorld {
                 
                 if (!checkMeleeHit(attack, enemy)) continue;
                 
-                int attackDamage = calculatePlayerDamage(attacker);
+                int attackDamage = attacker.getCachedTotalDamage();
                 int effectiveDamage = Math.max(1, attackDamage - enemy.getDefense());
                 
                 // Mark enemy as hit by this attack (prevent multiple hits per swing)
@@ -312,24 +312,6 @@ public class GameWorld {
         state.setRunning(false);
     }
 
-    private int calculatePlayerDamage(Player shooter) {
-        if (shooter == null) {
-            return 1;  // Fallback when shooter not found
-        }
-
-        // Base damage (current behavior)
-        int baseDamage = 1 + shooter.getLevel() + shooter.getCachedWeaponDamage();
-
-        // Mod scaling: LEVEL increases damage by 10% per mod_value.
-        int levelMod = shooter.getCachedWeaponLevelMod();
-        if (levelMod > 0) {
-            float multiplier = 1.0f + (levelMod * 0.10f);
-            baseDamage = Math.max(1, Math.round(baseDamage * multiplier));
-        }
-
-        return baseDamage;
-    }
-    
     /**
      * Check if a melee attack hits an enemy.
      * The attack is a 120° cone (60° on each side of the attack direction).

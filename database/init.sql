@@ -167,14 +167,14 @@ INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_ra
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
-('Spider',           2,  40,  1,  8, 0.5,  90.0, 1.5,  15),
-('Worm',             4,  80,  3, 17, 0.5, 100.0, 1.2,  60),
-('Wild Dog',         6, 120,  6, 26, 0.2, 150.0, 1.0, 100),
-('Hound',            9, 160,  9, 35, 0.3, 100.0, 0.5, 140),
+('Spider',           2,  40,  1,  8, 2.0,  90.0, 1.5,  15),
+('Worm',             4,  80,  3, 17, 1.5, 100.0, 1.2,  60),
+('Wild Dog',         6, 120,  6, 26, 2.0, 150.0, 1.0, 100),
+('Hound',            9, 160,  9, 35, 3.0, 100.0, 0.5, 140),
 ('Elite Wild Dog',  12, 220, 12, 44, 1.2, 200.0, 1.0, 160),
 ('Lich',            14, 260, 14, 52, 1.2,  60.0, 3.0, 140),
-('Giant',           17, 400, 18, 62, 0.8,  50.0, 3.0, 200),
-('Skeleton',        19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
+('Giant',           17, 600, 18, 62, 0.5,  50.0, 5.0, 200),
+('Skeleton',        19, 525, 22, 74, 3.0, 100.0, 1.0, 250)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample enemy item drops with rates
@@ -208,12 +208,12 @@ ON DUPLICATE KEY UPDATE drop_rate = VALUES(drop_rate);
 
 -- Sample Mod Templates
 INSERT INTO mod_templates (mod_type, mod_def, mod_value, mod_name, item_type) VALUES
-('LEVEL', "explicit", 1, 'Enhanced I', 'weapon'),
-('LEVEL', "explicit", 2, 'Enhanced II', 'weapon'),
-('LEVEL', "explicit", 3, 'Enhanced III', 'weapon'),
-('LEVEL', "explicit", 4, 'Enhanced IV', 'weapon'),
-('LEVEL', "explicit", 5, 'Enhanced V', 'weapon'),
-('LEVEL', "explicit", 6, 'Enhanced VI', 'weapon'),
+('LEVEL', "explicit", 1, '+10% attack damage/defense', 'weapon'),
+('LEVEL', "explicit", 2, '+20% attack damage/defense', 'weapon'),
+('LEVEL', "explicit", 3, '+30% attack damage/defense', 'weapon'),
+('LEVEL', "explicit", 4, '+40% attack damage/defense', 'weapon'),
+('LEVEL', "explicit", 5, '+50% attack damage/defense', 'weapon'),
+('LEVEL', "explicit", 6, '+60% attack damage/defense', 'weapon'),
 ('LIFE', "explicit", 50, 'Vitality', 'armor'),
 ('DEFENSE', "explicit", 5, 'Fortified', 'armor'),
 ('DAMAGE', "implicit", 33, 'Increase Dmg', 'weapon'),

@@ -156,4 +156,19 @@ public class EquippedItemRepository {
         Map<String, Map<String, Object>> equipped = getEquippedItems(playerId);
         return equipped.get("weapon");
     }
+
+    public static Map<String, Object> getEquippedArmor(int playerId) {
+        Map<String, Map<String, Object>> equipped = getEquippedItems(playerId);
+        return equipped.get("armor");
+    }
+
+    public static Map<String, Object> getEquippedGloves(int playerId) {
+        Map<String, Map<String, Object>> equipped = getEquippedItems(playerId);
+        return equipped.get("gloves");
+    }
+
+    public static Map<String, Object> getEquippedBoots(int playerId) {
+        Map<String, Map<String, Object>> equipped = getEquippedItems(playerId);
+        return equipped.get("boots");
+    }
 }
