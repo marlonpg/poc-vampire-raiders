@@ -73,11 +73,11 @@ grow_vertical = 2
 text = "Weapon"
 horizontal_alignment = 1
 
-[node name="HelmetSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
+[node name="GlovesSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/HelmetSlot"]
+[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/GlovesSlot"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -90,7 +90,7 @@ offset_right = 20.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
-text = "Helmet"
+text = "Gloves"
 horizontal_alignment = 1
 
 [node name="ArmorSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]

@@ -19,7 +19,7 @@ public class SpawnerSystem {
     private final int spawnInterval;
     private long lastSpawnTime;
     private final Random random = new Random();
-    private static final int PERF_TEST_ENEMY_COUNT = 300;
+    private static final int PERF_TEST_ENEMY_COUNT = 200;
     private EnemyTemplate spiderTemplate;
 
     public SpawnerSystem(GameState gameState) {
@@ -60,12 +60,12 @@ public class SpawnerSystem {
         EnemyTemplate spiderTemplate = EnemyTemplateRepository.getByName("Spider");
         EnemyTemplate wormTemplate = EnemyTemplateRepository.getByName("Worm");
         EnemyTemplate wildDogTemplate = EnemyTemplateRepository.getByName("Wild Dog");
-        EnemyTemplate goblinTemplate = EnemyTemplateRepository.getByName("Goblin");
+        EnemyTemplate houndTemplate = EnemyTemplateRepository.getByName("Hound");
         
         int spidersToSpawn = PERF_TEST_ENEMY_COUNT / 4;
         int wormsToSpawn = PERF_TEST_ENEMY_COUNT / 4;
         int dogsToSpawn = PERF_TEST_ENEMY_COUNT / 4;
-        int goblinsToSpawn = PERF_TEST_ENEMY_COUNT - spidersToSpawn - wormsToSpawn - dogsToSpawn;
+        int houndsToSpawn = PERF_TEST_ENEMY_COUNT - spidersToSpawn - wormsToSpawn - dogsToSpawn;
         
         // Spawn Spiders in PV1 zones
         if (spiderTemplate != null) {
@@ -100,12 +100,12 @@ public class SpawnerSystem {
             }
         }
         
-        // Spawn Goblins in PV4 zones
-        if (goblinTemplate != null) {
+        // Spawn Hounds in PV4 zones
+        if (houndTemplate != null) {
             List<Tilemap.TilePosition> pv4Zones = tilemap.getSpawnZones(4);
-            for (int i = 0; i < goblinsToSpawn && !pv4Zones.isEmpty(); i++) {
+            for (int i = 0; i < houndsToSpawn && !pv4Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv4Zones.get(random.nextInt(pv4Zones.size()));
-                Enemy enemy = new Enemy(pos.worldX, pos.worldY, goblinTemplate);
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, houndTemplate);
                 enemy.setSpawnLevel(4);
                 gameState.addEnemy(enemy);
             }
@@ -158,7 +158,7 @@ public class SpawnerSystem {
             case 1: return EnemyTemplateRepository.getByName("Spider");
             case 2: return EnemyTemplateRepository.getByName("Worm");
             case 3: return EnemyTemplateRepository.getByName("Wild Dog");
-            case 4: return EnemyTemplateRepository.getByName("Goblin");
+            case 4: return EnemyTemplateRepository.getByName("Hound");
             default: return EnemyTemplateRepository.getByName("Spider");
         }
     }

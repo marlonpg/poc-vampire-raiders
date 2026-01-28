@@ -95,12 +95,12 @@ public class EquippedItemRepository {
     }
 
     private static Map<String, Map<String, Object>> getEquippedItemsFromDb(int playerId) {
-        String sql = "SELECT e.weapon, e.helmet, e.armor, e.boots, " +
+        String sql = "SELECT e.weapon, e.gloves, e.armor, e.boots, " +
                 "inv.id as inv_id, inv.slot_x, inv.slot_y, " +
                 "wi.id as world_item_id, wi.item_template_id, " +
                 "it.name, it.type, it.damage, it.defense, it.attack_speed, it.attack_range, it.attack_type, it.rarity, it.stackable " +
                 "FROM equipped_items e " +
-                "LEFT JOIN inventory inv ON (e.weapon = inv.id OR e.helmet = inv.id OR e.armor = inv.id OR e.boots = inv.id) " +
+                "LEFT JOIN inventory inv ON (e.weapon = inv.id OR e.gloves = inv.id OR e.armor = inv.id OR e.boots = inv.id) " +
                 "LEFT JOIN world_items wi ON inv.world_item_id = wi.id " +
                 "LEFT JOIN item_templates it ON wi.item_template_id = it.id " +
                 "WHERE e.player_id = ?";
@@ -113,7 +113,7 @@ public class EquippedItemRepository {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     long weaponId = rs.getLong("weapon");
-                    long helmetId = rs.getLong("helmet");
+                    long glovesId = rs.getLong("gloves");
                     long armorId = rs.getLong("armor");
                     long bootsId = rs.getLong("boots");
                     
@@ -122,7 +122,7 @@ public class EquippedItemRepository {
                     String slotType = null;
                     
                     if (weaponId > 0 && weaponId == invId) slotType = "weapon";
-                    else if (helmetId > 0 && helmetId == invId) slotType = "helmet";
+                    else if (glovesId > 0 && glovesId == invId) slotType = "gloves";
                     else if (armorId > 0 && armorId == invId) slotType = "armor";
                     else if (bootsId > 0 && bootsId == invId) slotType = "boots";
                     

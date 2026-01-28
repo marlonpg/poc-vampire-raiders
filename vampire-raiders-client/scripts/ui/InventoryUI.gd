@@ -6,7 +6,7 @@ const CELL_SIZE = 50
 
 @onready var grid_container = $Panel/MarginContainer/VBoxContainer/InventoryPanel/GridWrapper/GridContainer
 @onready var weapon_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/WeaponSlot
-@onready var helmet_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/HelmetSlot
+@onready var gloves_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/GlovesSlot
 @onready var armor_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/ArmorSlot
 @onready var boots_slot = $Panel/MarginContainer/VBoxContainer/EquipmentPanel/BootsSlot
 @onready var net_manager: Node = get_node_or_null("/root/NetworkManager")
@@ -14,7 +14,7 @@ const CELL_SIZE = 50
 var inventory_items = {} # {slot_index: item_data}
 var equipped_items = {
 	"weapon": null,
-	"helmet": null,
+	"gloves": null,
 	"armor": null,
 	"boots": null
 }
@@ -65,7 +65,7 @@ func _initialize_grid():
 
 func _setup_equipment_slots():
 	"""Setup equipment slot drag-and-drop"""
-	var slot_types = {"weapon": weapon_slot, "helmet": helmet_slot, "armor": armor_slot, "boots": boots_slot}
+	var slot_types = {"weapon": weapon_slot, "gloves": gloves_slot, "armor": armor_slot, "boots": boots_slot}
 	
 	for slot_type in slot_types:
 		var slot = slot_types[slot_type]
@@ -407,8 +407,8 @@ func _update_equipment_slot_display(slot_type: String):
 	match slot_type:
 		"weapon":
 			slot_panel = weapon_slot
-		"helmet":
-			slot_panel = helmet_slot
+		"gloves":
+			slot_panel = gloves_slot
 		"armor":
 			slot_panel = armor_slot
 		"boots":

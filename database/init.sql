@@ -109,14 +109,14 @@ CREATE TABLE IF NOT EXISTS equipped_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT NOT NULL UNIQUE,
   weapon BIGINT NULL,
-  helmet BIGINT NULL,
+  gloves BIGINT NULL,
   armor BIGINT NULL,
   boots BIGINT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
   FOREIGN KEY (weapon) REFERENCES inventory(id) ON DELETE SET NULL,
-  FOREIGN KEY (helmet) REFERENCES inventory(id) ON DELETE SET NULL,
+  FOREIGN KEY (gloves) REFERENCES inventory(id) ON DELETE SET NULL,
   FOREIGN KEY (armor) REFERENCES inventory(id) ON DELETE SET NULL,
   FOREIGN KEY (boots) REFERENCES inventory(id) ON DELETE SET NULL
 );
@@ -125,9 +125,11 @@ CREATE TABLE IF NOT EXISTS equipped_items (
 -- Mod Templates (predefined mod definitions)
 CREATE TABLE IF NOT EXISTS mod_templates (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  mod_type ENUM('LEVEL', 'LIFE', 'DEFENSE', 'DAMAGE', 'SKILL') NOT NULL,
+  mod_type ENUM('LEVEL', 'LIFE', 'DEFENSE', 'DAMAGE', 'SKILL', 'RATE', 'RANGE') NOT NULL,
+  mod_def VARCHAR(100) NOT NULL,
   mod_value INT NOT NULL,
   mod_name VARCHAR(100) NOT NULL,
+  item_type VARCHAR(100) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_type (mod_type)
 );
@@ -146,52 +148,77 @@ CREATE TABLE IF NOT EXISTS item_mods (
 
 -- Sample Item Templates
 INSERT INTO item_templates (name, type, damage, defense, attack_speed, attack_range, attack_type, rarity, description, stackable) VALUES
-('Iron Dagger', 'weapon', 10, 0, 1.0, 50.0, 'melee', 'common', 'A basic iron dagger', FALSE),
-('Small Axe', 'weapon', 15, 0, 0.8, 70.0, 'melee', 'common', 'A small axe', FALSE),
-('Small Axe x1', 'weapon', 15, 0, 0.8, 70.0, 'melee', 'common', 'A small axe', FALSE),
-('Small Bow', 'weapon', 8, 0, 1.2, 200.0, 'ranged', 'common', 'A small bow', FALSE),
-('Steel Sword', 'weapon', 20, 0, 1.0, 80.0, 'melee', 'common', 'A well-crafted steel sword', FALSE),
+('Small Axe', 'weapon', 6, 0, 0.8, 70.0, 'melee', 'common', 'A small axe', FALSE),
+('Small Bow', 'weapon', 5, 0, 1.2, 200.0, 'ranged', 'common', 'A small bow', FALSE),
+('Short Sword', 'weapon', 7, 0, 1.0, 80.0, 'melee', 'common', 'A well-crafted short sword', FALSE),
+('Iron Dagger', 'weapon', 10, 0, 1.5, 50.0, 'melee', 'common', 'A basic iron dagger', FALSE),
 ('Katana', 'weapon', 15, 0, 1.4, 80.0, 'melee', 'common', 'A katana from the east', FALSE),
-('Leather Armor', 'armor', 0, 5, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
+('Leather Gloves', 'gloves', 0, 2, 0, 0, NULL, 'common', 'Basic leather gloves', FALSE),
+('Leather Boots', 'boots', 0, 3, 0, 0, NULL, 'common', 'Basic leather boots', FALSE),
+('Leather Armor', 'armor', 0, 5, 0, 0, NULL, 'common', 'Basic leather armor', FALSE),
 ('Iron Armor', 'armor', 0, 15, 0, 0, NULL, 'common', 'Basic iron armor', FALSE),
 ('Plate Armor', 'armor', 0, 30, 0, 0, NULL, 'common', 'Sturdy plate armor', FALSE),
 ('Health Potion', 'consumable', 0, 0, 1.0, 200.0, NULL, 'common', 'Restores 50 health', TRUE),
 ('Jewel of Strength', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Increase item in 1 level', FALSE),
 ('Jewel of Modification', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Add or Modify mods from items', FALSE),
+('Jewel of Chaos', 'jewel', 0, 0, 1.0, 200.0, NULL, 'rare', 'Reroll item mods', FALSE),
 ('Gold Coin', 'loot', 0, 0, 1.0, 200.0, NULL, 'common', 'Currency', TRUE);
 
 -- Default enemy templates
 INSERT INTO enemy_templates (name, level, hp, defense, attack, attack_rate, move_speed, attack_range, experience)
 VALUES 
 ('Spider',           2,  40,  1,  8, 0.5,  90.0, 1.5,  15),
-('Worm',             4,  80,  3, 17, 0.8, 100.0, 1.2,  60),
+('Worm',             4,  80,  3, 17, 0.5, 100.0, 1.2,  60),
 ('Wild Dog',         6, 120,  6, 26, 0.2, 150.0, 1.0, 100),
-('Hound',            9, 160,  9, 35, 1.0, 100.0, 0.5, 140),
-('Elite Wild Dog',  14, 260, 14, 52, 1.2, 200.0, 1.0, 160),
+('Hound',            9, 160,  9, 35, 0.3, 100.0, 0.5, 140),
+('Elite Wild Dog',  12, 220, 12, 44, 1.2, 200.0, 1.0, 160),
+('Lich',            14, 260, 14, 52, 1.2,  60.0, 3.0, 140),
 ('Giant',           17, 400, 18, 62, 0.8,  50.0, 3.0, 200),
 ('Skeleton',        19, 525, 22, 74, 1.0, 100.0, 1.0, 250)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Sample enemy item drops with rates
 INSERT INTO enemy_items (enemy_template_id, item_template_id, drop_rate) VALUES
-((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Gold Coin'), 60.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Gold Coin'), 70.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Iron Dagger'), 6.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Short Sword'), 5.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Leather Armor'), 9.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Leather Gloves'), 9.00),
+((SELECT id FROM enemy_templates WHERE name = 'Hound'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 1.00),
+
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Gold Coin'), 60.00),
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Small Axe'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Small Bow'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Short Sword'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Leather Gloves'), 9.00),
+((SELECT id FROM enemy_templates WHERE name = 'Wild Dog'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 1.00),
+
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Jewel of Modification'), 60.00),
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Small Axe'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Small Bow'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Short Sword'), 10.00),
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Leather Gloves'), 9.00),
+((SELECT id FROM enemy_templates WHERE name = 'Worm'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 1.00),
+
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 70.00),
 ((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Small Axe'), 10.00),
 ((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Small Bow'), 10.00),
-((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Iron Dagger'), 10.00),
-((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Leather Armor'), 9.00),
-((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Jewel of Strength'), 1.00)
+((SELECT id FROM enemy_templates WHERE name = 'Spider'), (SELECT id FROM item_templates WHERE name = 'Leather Gloves'), 10.00)
 ON DUPLICATE KEY UPDATE drop_rate = VALUES(drop_rate);
 
 -- Sample Mod Templates
-INSERT INTO mod_templates (mod_type, mod_value, mod_name) VALUES
-('LEVEL', 1, 'Enhanced I'),
-('LEVEL', 2, 'Enhanced II'),
-('LEVEL', 3, 'Enhanced III'),
-('LEVEL', 4, 'Enhanced IV'),
-('LEVEL', 5, 'Enhanced V'),
-('LEVEL', 6, 'Enhanced VI'),
-('LIFE', 50, 'Vitality'),
-('DEFENSE', 5, 'Fortified'),
-('DAMAGE', 10, 'Increase'),
-('SKILL', 10, 'Lifesteal'),
-('SKILL', 2, 'Multiplier');
+INSERT INTO mod_templates (mod_type, mod_def, mod_value, mod_name, item_type) VALUES
+('LEVEL', "explicit", 1, 'Enhanced I', 'weapon'),
+('LEVEL', "explicit", 2, 'Enhanced II', 'weapon'),
+('LEVEL', "explicit", 3, 'Enhanced III', 'weapon'),
+('LEVEL', "explicit", 4, 'Enhanced IV', 'weapon'),
+('LEVEL', "explicit", 5, 'Enhanced V', 'weapon'),
+('LEVEL', "explicit", 6, 'Enhanced VI', 'weapon'),
+('LIFE', "explicit", 50, 'Vitality', 'armor'),
+('DEFENSE', "explicit", 5, 'Fortified', 'armor'),
+('DAMAGE', "implicit", 33, 'Increase Dmg', 'weapon'),
+('RATE', "implicit", 33, 'Increase Speed', 'weapon'),
+('RANGE', "implicit", 33, 'Increase Range', 'weapon'),
+('DAMAGE', "implicit", 5, 'Chance of Double Dmg', 'weapon'),
+('SKILL', "implicit", 10, 'Lifesteal', 'weapon'),
+('SKILL', "implicit", 2, 'Multiplier', 'weapon');

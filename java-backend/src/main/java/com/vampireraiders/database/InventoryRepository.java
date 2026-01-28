@@ -189,7 +189,7 @@ public class InventoryRepository {
         // Equipped items remain in inventory table but their slots should be available for new items
         String sql = "SELECT i.slot_x, i.slot_y FROM inventory i " +
                      "LEFT JOIN equipped_items e ON e.player_id = i.player_id " +
-                     "AND (e.weapon = i.id OR e.helmet = i.id OR e.armor = i.id OR e.boots = i.id) " +
+                     "AND (e.weapon = i.id OR e.gloves = i.id OR e.armor = i.id OR e.boots = i.id) " +
                      "WHERE i.player_id = ? AND e.player_id IS NULL " +
                      "ORDER BY i.slot_y, i.slot_x";
         java.util.Set<String> occupied = new java.util.HashSet<>();

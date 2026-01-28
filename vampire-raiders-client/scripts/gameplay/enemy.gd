@@ -37,8 +37,8 @@ const TELEGRAPH_TYPES = {
 const ENEMY_COLORS = {
 	"Spider": Color(0.8, 0.5, 0.5, 1.0),      # Light red
 	"Worm": Color(1.0, 0.6, 0.2, 1.0),        # Orange
-	"Wild Dog": Color(0.2, 0.6, 1.0, 1.0),    # Blue
-	"Goblin": Color(0.4, 1.0, 0.4, 1.0),      # Green
+	"Wild Dog": Color(0.6, 0.4, 0.2, 1.0),    # Brown
+	"Hound": Color(0.2, 0.5, 1.0, 1.0),       # Blue
 }
 
 func _ready():
