@@ -1,11 +1,18 @@
 extends Node2D
 class_name Enemy
 
+var EnemySfx = preload("res://scripts/audio/EnemySfx.gd")
+
 var template_id: int = 0
 var template_name: String = "Unknown"
 var health := 50
 var max_health := 50
 var level := 1
+
+# Audio tracking
+var is_walking: bool = false
+var last_position: Vector2 = Vector2.ZERO
+var walk_sound_cooldown: float = 0.0
 
 # Telegraph attack visualization
 var telegraph_circle: Node2D = null
@@ -44,6 +51,7 @@ const ENEMY_COLORS = {
 func _ready():
 	print("[ENEMY] Enemy spawned: ", name, " (", template_name, ")")
 	_create_telegraph_visual()
+	last_position = global_position
 
 func _create_telegraph_visual() -> void:
 	if telegraph_circle == null:
@@ -64,7 +72,26 @@ func _process(_delta):
 		show_telegraph = false
 		telegraph_progress = 0.0
 	
+	# Handle walking sounds
+	_update_walk_sounds(_delta)
+	
 	queue_redraw()
+
+func _update_walk_sounds(delta: float) -> void:
+	"""Update walking sounds based on enemy movement"""
+	# Check if enemy is moving (position changed)
+	var movement_distance = global_position.distance_to(last_position)
+	is_walking = movement_distance > 0.5  # Small threshold to avoid noise
+	last_position = global_position
+	
+	# Play walking sound while moving (with cooldown to avoid overlapping)
+	if is_walking and attack_state == "IDLE":
+		walk_sound_cooldown -= delta
+		if walk_sound_cooldown <= 0.0:
+			EnemySfx.play_walk_sound(template_name, self)
+			walk_sound_cooldown = 0.5  # 500ms between walk sound loops
+	else:
+		walk_sound_cooldown = 0.0
 
 func update_from_server(enemy_data: Dictionary) -> void:
 	"""Update enemy state from server"""
@@ -76,6 +103,8 @@ func update_from_server(enemy_data: Dictionary) -> void:
 		if new_attack_state == "TELEGRAPHING":
 			client_telegraph_start = Time.get_ticks_msec()
 			print("[ENEMY] %s telegraph started at client time: %d" % [name, client_telegraph_start])
+			# Play attack sound when enemy starts telegraphing
+			EnemySfx.play_attack_sound(template_name, self)
 	attack_state = new_attack_state
 	telegraph_target_x = enemy_data.get("telegraph_target_x", 0)
 	telegraph_target_y = enemy_data.get("telegraph_target_y", 0)
