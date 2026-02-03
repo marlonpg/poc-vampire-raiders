@@ -164,7 +164,6 @@ func set_position_from_server(new_pos: Vector2) -> void:
 	_last_position = new_pos
 
 func set_direction_from_server(dir_x: float, dir_y: float) -> void:
-	print("[PLAYER] dir from server:", dir_x, ",", dir_y)
 	_update_sprite_from_vector(Vector2(dir_x, dir_y))
 
 # =========================
@@ -224,7 +223,6 @@ func _update_sprite_from_vector(v: Vector2) -> void:
 	if _sprite == null:
 		_sprite = get_node_or_null("Sprite2D")
 		if _sprite == null:
-			print("[PLAYER] Sprite2D missing in _update_sprite_from_vector")
 			return
 	if v.length() <= 0.001:
 		if _current_direction != "idle":
@@ -267,10 +265,7 @@ func _update_sprite_direction(direction: String) -> void:
 		return
 	var texture: Texture2D = _DIRECTION_TEXTURES.get(direction, null)
 	if texture != null:
-		print("[PLAYER] sprite direction ->", direction)
 		_sprite.texture = texture
-	else:
-		print("[PLAYER] missing texture for direction:", direction)
 
 func _role() -> String:
 	return "SERVER" if multiplayer.is_server() else "CLIENT"
