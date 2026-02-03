@@ -204,16 +204,30 @@ func _update_players(players_data: Array) -> void:
 			#_log_client("Local player data: Level=%d, XP=%d, HP=%d/%d" % [local_level, local_xp, p.get("health", 100), local_max_health])
 			if player_instance:
 				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
-				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
+				var new_pos := Vector2(p.get("x", 0), p.get("y", 0))
+				if player_instance.has_method("set_position_from_server"):
+					player_instance.set_position_from_server(new_pos)
+				else:
+					player_instance.position = new_pos
 				player_instance.health = p.get("health", 100)
 				# Update attack range from server
 				if player_instance.has_method("update_attack_range"):
 					player_instance.update_attack_range(p.get("attack_range", 200.0))
+				# Update facing direction from server input
+				if player_instance.has_method("set_direction_from_server"):
+					player_instance.set_direction_from_server(
+						float(p.get("dir_x", 0.0)),
+						float(p.get("dir_y", 0.0))
+					)
 			elif player_scene:
 				#_log_client("ERROR: Local player not spawned yet, creating late instance")
 				player_instance = player_scene.instantiate()
 				player_instance.name = str(pid)
-				player_instance.position = Vector2(p.get("x", 0), p.get("y", 0))
+				var new_pos := Vector2(p.get("x", 0), p.get("y", 0))
+				if player_instance.has_method("set_position_from_server"):
+					player_instance.set_position_from_server(new_pos)
+				else:
+					player_instance.position = new_pos
 				add_child(player_instance)
 			if player_instance:
 				_update_health_ui(player_instance.health, local_max_health)
@@ -232,7 +246,16 @@ func _update_players(players_data: Array) -> void:
 				add_child(remote)
 				other_players[pid] = remote
 			if other_players.has(pid) and is_instance_valid(other_players[pid]):
-				other_players[pid].position = Vector2(p.get("x", 0), p.get("y", 0))
+				var new_pos := Vector2(p.get("x", 0), p.get("y", 0))
+				if other_players[pid].has_method("set_position_from_server"):
+					other_players[pid].set_position_from_server(new_pos)
+				else:
+					other_players[pid].position = new_pos
+				if other_players[pid].has_method("set_direction_from_server"):
+					other_players[pid].set_direction_from_server(
+						float(p.get("dir_x", 0.0)),
+						float(p.get("dir_y", 0.0))
+					)
 				other_players[pid].visible = p.get("alive", true)
 
 	# Remove players that disappeared
