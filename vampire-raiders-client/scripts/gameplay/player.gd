@@ -228,10 +228,8 @@ func _update_sprite_from_vector(v: Vector2) -> void:
 		if _current_direction != "idle":
 			_current_direction = "idle"
 			_update_sprite_direction(_current_direction)
-			print("[PLAYER] setting to idle")
 		return
 	var direction := _direction_from_vector(v)
-	print("[PLAYER] computed direction:", direction, " from", v)
 	if direction != "" and direction != _current_direction:
 		_current_direction = direction
 		_update_sprite_direction(_current_direction)
@@ -260,7 +258,6 @@ func _direction_from_vector(v: Vector2) -> String:
 	return ""
 
 func _update_sprite_direction(direction: String) -> void:
-	print("[PLAYER] updating sprite direction to:", direction)
 	if _sprite == null:
 		return
 	var texture: Texture2D = _DIRECTION_TEXTURES.get(direction, null)
