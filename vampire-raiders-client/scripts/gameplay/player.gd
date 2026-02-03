@@ -13,9 +13,13 @@ const _DIRECTION_TEXTURES := {
 	"right": preload("res://assets/player/default/right.png"),
 	"right-up": preload("res://assets/player/default/right-up.png"),
 	"right-down": preload("res://assets/player/default/right-down.png"),
+	"idle": preload("res://assets/player/default/idle.png"),
 	"left-up": preload("res://assets/player/default/left-up.png"),
 	"left-down": preload("res://assets/player/default/left-down.png"),
 }
+var _idle_texture: Texture2D = null
+
+const _IDLE_TEXTURE := preload("res://assets/player/default/idle.png")
 
 var velocity := Vector2.ZERO
 var health := 100
@@ -24,6 +28,7 @@ var attack_range := 200.0  # Received from server, default 200
 var is_local_player := false  # Set by world script to identify local player
 var _last_position := Vector2.ZERO
 var _current_direction := "down"
+
 @onready var _sprite: Sprite2D = get_node_or_null("Sprite2D")
 
 # Weapon handling
@@ -222,17 +227,22 @@ func _update_sprite_from_vector(v: Vector2) -> void:
 			print("[PLAYER] Sprite2D missing in _update_sprite_from_vector")
 			return
 	if v.length() <= 0.001:
+		if _current_direction != "idle":
+			_current_direction = "idle"
+			_update_sprite_direction(_current_direction)
+			print("[PLAYER] setting to idle")
 		return
 	var direction := _direction_from_vector(v)
-	print("[PLAYER] computed direction:", direction, "from", v)
+	print("[PLAYER] computed direction:", direction, " from", v)
 	if direction != "" and direction != _current_direction:
 		_current_direction = direction
 		_update_sprite_direction(_current_direction)
 
 func _direction_from_vector(v: Vector2) -> String:
 	if v.length() <= 0.1:
-		return ""
+		return "idle"
 	var angle := rad_to_deg(atan2(v.y, v.x))
+	print("[PLAYER] angle from vector:", angle)
 	if angle >= -22.5 and angle < 22.5:
 		return "right"
 	if angle >= 22.5 and angle < 67.5:
@@ -252,6 +262,7 @@ func _direction_from_vector(v: Vector2) -> String:
 	return ""
 
 func _update_sprite_direction(direction: String) -> void:
+	print("[PLAYER] updating sprite direction to:", direction)
 	if _sprite == null:
 		return
 	var texture: Texture2D = _DIRECTION_TEXTURES.get(direction, null)
