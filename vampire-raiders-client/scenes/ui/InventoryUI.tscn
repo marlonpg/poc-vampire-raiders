@@ -43,21 +43,85 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/MarginContainer"]
 layout_mode = 2
-alignment = 1
+theme_override_constants/separation = 20
+
+[node name="StatsPanel" type="VBoxContainer" parent="Panel/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="PlayerNameLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Player Name"
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+
+[node name="LevelLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Level: 1"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="MaxHealthLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Max Health: 100"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="AttackDamageLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Attack Dmg: 0"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="DefenseLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Defense: 0"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="MoveSpeedLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Move Speed: 100"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="AttackSpeedLabel" type="Label" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+layout_mode = 2
+text = "Attack Speed: 1.0"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="Separator" type="Control" parent="Panel/MarginContainer/HBoxContainer/StatsPanel"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 15
 
-[node name="EquipmentPanel" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer"]
+[node name="EquipmentPanel" type="CenterContainer" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 10
-alignment = 1
+custom_minimum_size = Vector2(200, 200)
 
-[node name="WeaponSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
+[node name="EquipmentGrid" type="GridContainer" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 5
+theme_override_constants/v_separation = 5
+
+[node name="EmptySlot1" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/WeaponSlot"]
+[node name="ArmorSlot" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/ArmorSlot"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -70,14 +134,19 @@ offset_right = 20.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
-text = "Weapon"
+text = "A"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
 
-[node name="HelmetSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
+[node name="EmptySlot2" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/HelmetSlot"]
+[node name="WeaponSlot" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/WeaponSlot"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -90,14 +159,15 @@ offset_right = 20.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
-text = "Helmet"
+text = "W"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
 
-[node name="ArmorSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
+[node name="GlovesSlot" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/ArmorSlot"]
+[node name="Label" type="Label" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/GlovesSlot"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -110,14 +180,23 @@ offset_right = 20.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
-text = "Armor"
+text = "G"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
 
-[node name="BootsSlot" type="Panel" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel"]
+[node name="EmptySlot3" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Panel/MarginContainer/VBoxContainer/EquipmentPanel/BootsSlot"]
+[node name="EmptySlot4" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+
+[node name="BootsSlot" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid/BootsSlot"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -130,19 +209,24 @@ offset_right = 20.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
-text = "Boots"
+text = "B"
 horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
 
-[node name="InventoryPanel" type="VBoxContainer" parent="Panel/MarginContainer/VBoxContainer"]
+[node name="EmptySlot5" type="Panel" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/EquipmentPanel/EquipmentGrid"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+
+[node name="InventoryPanel" type="VBoxContainer" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="GridWrapper" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer/InventoryPanel"]
+[node name="GridWrapper" type="HBoxContainer" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/InventoryPanel"]
 layout_mode = 2
 alignment = 1
 
-[node name="GridContainer" type="GridContainer" parent="Panel/MarginContainer/VBoxContainer/InventoryPanel/GridWrapper"]
+[node name="GridContainer" type="GridContainer" parent="Panel/MarginContainer/HBoxContainer/VBoxContainer/InventoryPanel/GridWrapper"]
 layout_mode = 2
 size_flags_vertical = 3
 columns = 6

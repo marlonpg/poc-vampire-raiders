@@ -49,6 +49,5 @@ static func play_drop_for_type(item_type: String, context: Node, pos: Vector2 = 
 	player.stream = stream
 	root.add_child(player)
 	player.play()
-	# Auto-cleanup after sound finishes
-	await player.finished
-	player.queue_free()
+	# Auto-cleanup after sound finishes (connect signal instead of await to avoid blocking)
+	player.finished.connect(func(): player.queue_free())

@@ -1,6 +1,8 @@
 package com.vampireraiders;
 
 import com.vampireraiders.config.ServerConfig;
+import com.vampireraiders.database.ItemModRepository;
+import com.vampireraiders.database.ItemTemplateRepository;
 import com.vampireraiders.game.GameLoop;
 import com.vampireraiders.game.GameWorld;
 import com.vampireraiders.network.NetworkManager;
@@ -38,6 +40,11 @@ public class VampireRaidersServer implements NetworkEventListener {
         Logger.info("Vampire Raiders Server v0.1.0");
         Logger.info("=================================");
         Logger.info("Starting server on " + config.getHost() + ":" + config.getPort());
+
+        // Load static data caches
+        Logger.info("Loading static data caches...");
+        ItemTemplateRepository.loadTemplates();
+        ItemModRepository.loadModTemplates();
 
         // Spawn initial enemies for performance testing
         spawnerSystem.spawnInitialEnemiesForPerfTest();
