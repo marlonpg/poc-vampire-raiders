@@ -1,6 +1,6 @@
 extends Panel
 
-@export var slot_type: String = ""  # weapon, helmet, armor, boots
+@export var slot_type: String = ""  # weapon, gloves, armor, boots
 var parent_inventory_ui: Node = null
 
 func _gui_input(event: InputEvent) -> void:

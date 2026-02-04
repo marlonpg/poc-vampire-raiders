@@ -1,9 +1,14 @@
-[gd_scene load_steps=2 format=3 uid="uid://c3wciaba1bcwu"]
+[gd_scene load_steps=3 format=3 uid="uid://c3wciaba1bcwu"]
 
 [ext_resource type="Script" uid="uid://cd4ndc6dunpjl" path="res://scripts/gameplay/player.gd" id="1_p0vlq"]
+[ext_resource type="Texture2D" uid="uid://b1h3a1a2a0x3p" path="res://assets/player/default/down.png" id="2_p4n0k"]
 
 [node name="Player" type="Node2D"]
 script = ExtResource("1_p0vlq")
+
+[node name="Sprite2D" type="Sprite2D" parent="Player"]
+centered = true
+texture = ExtResource("2_p4n0k")
 
 [node name="Camera2D" type="Camera2D" parent="Player"]
 current = false
