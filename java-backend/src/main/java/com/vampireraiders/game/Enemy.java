@@ -175,6 +175,11 @@ public class Enemy {
     public int getLevel() { return level; }
     public String getTemplateName() { return templateName; }
     public long getSpawnTime() { return spawnTime; }
+
+    public void setPosition(float newX, float newY) {
+        this.x = newX;
+        this.y = newY;
+    }
     
     // Telegraph attack getters and setters
     public AttackState getAttackState() { return attackState; }

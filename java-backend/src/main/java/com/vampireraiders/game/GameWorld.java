@@ -20,6 +20,7 @@ public class GameWorld {
     private StateSync stateSync;
     private long lastPlayerSaveTime = 0;
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
+    private static final float ENEMY_MIN_SEPARATION = 24f;
 
     public GameWorld() {
         this(null);
@@ -121,6 +122,9 @@ public class GameWorld {
                 enemy.update(deltaTime, nearestPlayer, targetedPlayer);
             }
         }
+
+        // Resolve enemy overlap so they don't stack on top of each other
+        resolveEnemyOverlap();
 
         // Update all bullets
         for (Bullet bullet : state.getAllBullets()) {
@@ -385,5 +389,56 @@ public class GameWorld {
      */
     public static Tilemap getTilemap() {
         return tilemap;
+    }
+
+    private void resolveEnemyOverlap() {
+        List<Enemy> enemies = state.getAllEnemies();
+        int count = enemies.size();
+        if (count <= 1) {
+            return;
+        }
+
+        float minDist = ENEMY_MIN_SEPARATION;
+        float minDistSq = minDist * minDist;
+
+        for (int i = 0; i < count; i++) {
+            Enemy a = enemies.get(i);
+            if (!a.isAlive()) continue;
+            for (int j = i + 1; j < count; j++) {
+                Enemy b = enemies.get(j);
+                if (!b.isAlive()) continue;
+
+                float dx = b.getX() - a.getX();
+                float dy = b.getY() - a.getY();
+                float distSq = dx * dx + dy * dy;
+
+                if (distSq >= minDistSq) {
+                    continue;
+                }
+
+                float dist = (float) Math.sqrt(distSq);
+                if (dist == 0f) {
+                    dx = 0.001f;
+                    dy = 0f;
+                    dist = 0.001f;
+                }
+
+                float overlap = (minDist - dist) * 0.5f;
+                float nx = dx / dist;
+                float ny = dy / dist;
+
+                float ax = a.getX() - nx * overlap;
+                float ay = a.getY() - ny * overlap;
+                float bx = b.getX() + nx * overlap;
+                float by = b.getY() + ny * overlap;
+
+                if (isEnemyWalkable(ax, ay)) {
+                    a.setPosition(ax, ay);
+                }
+                if (isEnemyWalkable(bx, by)) {
+                    b.setPosition(bx, by);
+                }
+            }
+        }
     }
 }
