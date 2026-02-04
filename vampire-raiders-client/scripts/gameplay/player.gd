@@ -238,7 +238,6 @@ func _direction_from_vector(v: Vector2) -> String:
 	if v.length() <= 0.1:
 		return "idle"
 	var angle := rad_to_deg(atan2(v.y, v.x))
-	print("[PLAYER] angle from vector:", angle)
 	if angle >= -22.5 and angle < 22.5:
 		return "right"
 	if angle >= 22.5 and angle < 67.5:
