@@ -14,7 +14,7 @@ import java.util.Random;
 public class ItemDropService {
     private static final Random RANDOM = new Random();
 
-    public WorldItem dropFromEnemy(int enemyTemplateId, float x, float y) {
+    public WorldItem dropFromEnemy(int enemyTemplateId, float x, float y, String mapId) {
         List<EnemyItem> possibleDrops = EnemyItemRepository.getDropsForEnemy(enemyTemplateId);
         if (possibleDrops.isEmpty()) {
             Logger.warn("No drops configured for enemy template " + enemyTemplateId);
@@ -46,6 +46,7 @@ public class ItemDropService {
                 if (worldItem != null) {
                     worldItem.setTemplateName(template.getName());
                     worldItem.setItemType(template.getType());
+                    worldItem.setMapId(mapId);
                 }
                 return worldItem;
             }

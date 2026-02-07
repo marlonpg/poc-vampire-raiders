@@ -5,6 +5,7 @@ public class WorldItem {
     private final int itemTemplateId;
     private final float x;
     private final float y;
+    private String mapId = "main";
     private Integer claimedBy; // null when unclaimed
     private String templateName; // optional helper for broadcasting
     private String itemType; // optional helper for broadcasting
@@ -35,6 +36,14 @@ public class WorldItem {
 
     public float getY() {
         return y;
+    }
+
+    public String getMapId() {
+        return mapId;
+    }
+
+    public void setMapId(String mapId) {
+        this.mapId = mapId != null ? mapId : "main";
     }
 
     public Integer getClaimedBy() {

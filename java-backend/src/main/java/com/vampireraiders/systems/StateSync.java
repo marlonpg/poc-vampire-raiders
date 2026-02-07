@@ -33,6 +33,9 @@ public class StateSync {
             playerObj.addProperty("level", player.getLevel());
             playerObj.addProperty("alive", player.isAlive());
             playerObj.addProperty("attack_range", player.getEquippedAttackRange());
+            playerObj.addProperty("dir_x", player.getVelocityX());
+            playerObj.addProperty("dir_y", player.getVelocityY());
+            playerObj.addProperty("map_id", player.getMapId());
             playersArray.add(playerObj);
         }
         message.add("players", playersArray);
@@ -50,6 +53,7 @@ public class StateSync {
             enemyObj.addProperty("type", enemy.getTemplateName());
             enemyObj.addProperty("level", enemy.getLevel());
             enemyObj.addProperty("alive", enemy.isAlive());
+            enemyObj.addProperty("map_id", enemy.getMapId());
             
             // Telegraph attack data
             enemyObj.addProperty("attack_state", enemy.getAttackState().toString());
@@ -72,6 +76,7 @@ public class StateSync {
             bulletObj.addProperty("y", bullet.getY());
             bulletObj.addProperty("vx", bullet.getVx());
             bulletObj.addProperty("vy", bullet.getVy());
+            bulletObj.addProperty("map_id", bullet.getMapId());
             bulletsArray.add(bulletObj);
         }
         message.add("bullets", bulletsArray);
@@ -90,6 +95,7 @@ public class StateSync {
                 meleeObj.addProperty("start_time", attack.getStartTimeMs());
                 meleeObj.addProperty("duration_ms", attack.getDurationMs());
                 meleeObj.addProperty("direction_degrees", attack.getDirectionDegrees());
+                meleeObj.addProperty("map_id", attack.getMapId());
                 meleeArray.add(meleeObj);
             }
         }
@@ -107,9 +113,22 @@ public class StateSync {
             itemObj.addProperty("y", item.getY());
             itemObj.addProperty("claimed_by", item.getClaimedBy());
             itemObj.addProperty("has_mods", item.hasMods());
+            itemObj.addProperty("map_id", item.getMapId());
             worldItemsArray.add(itemObj);
         }
         message.add("world_items", worldItemsArray);
+
+        // Serialize portals (main map only)
+        JsonArray portalsArray = new JsonArray();
+        for (Portal portal : state.getPortals()) {
+            JsonObject portalObj = new JsonObject();
+            portalObj.addProperty("x", portal.getX());
+            portalObj.addProperty("y", portal.getY());
+            portalObj.addProperty("map_id", "main");
+            portalObj.addProperty("target_map_id", portal.getTargetMapId());
+            portalsArray.add(portalObj);
+        }
+        message.add("portals", portalsArray);
 
         return message;
     }
@@ -136,7 +155,7 @@ public class StateSync {
      * @param x - world x position
      * @param y - world y position
      */
-    public void broadcastDamageEvent(int targetId, String targetType, int damage, float x, float y) {
+    public void broadcastDamageEvent(int targetId, String targetType, int damage, float x, float y, String mapId) {
         JsonObject message = new JsonObject();
         message.addProperty("type", "damage_event");
         message.addProperty("target_id", targetId);
@@ -144,6 +163,7 @@ public class StateSync {
         message.addProperty("damage", damage);
         message.addProperty("x", x);
         message.addProperty("y", y);
+        message.addProperty("map_id", mapId != null ? mapId : "main");
         
         if (networkManager != null) {
             networkManager.broadcastMessageToAll(message.toString());

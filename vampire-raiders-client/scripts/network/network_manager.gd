@@ -5,7 +5,7 @@ const PORT := 7777
 signal game_state_received(data: Dictionary)
 signal inventory_received(data: Dictionary)
 signal item_picked_up(world_item_id: int)
-signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2)
+signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2, map_id: String)
 signal latency_updated(rtt_ms: float)
 
 var socket: StreamPeerTCP
@@ -18,6 +18,7 @@ var connection_time: float = 0.0
 var last_status: int = -1
 var heartbeat_timer: float = 0.0
 var heartbeat_interval: float = 5.0
+var recv_buffer: String = ""
 
 # RTT (ping) tracking
 var last_rtt_ms: float = -1.0
@@ -99,14 +100,19 @@ func _process(delta):
 			var data = bytes[1].get_string_from_utf8()
 			if data == "":
 				return
-				
-			for line in data.split("\n"):
+			
+			recv_buffer += data
+			var lines = recv_buffer.split("\n")
+			var last_index = lines.size() - 1
+			for i in range(last_index):
+				var line = lines[i]
 				if line.is_empty():
 					continue
-				
 				var json = JSON.new()
 				if json.parse(line) == OK:
 					_handle_server_message(json.data)
+			# Preserve any partial line without newline
+			recv_buffer = lines[last_index]
 	elif status == StreamPeerTCP.STATUS_NONE and connected:
 		connected = false
 		print("[NETWORK] Disconnected!")
@@ -128,7 +134,8 @@ func _handle_server_message(data: Dictionary):
 			var damage = data.get("damage", 0)
 			var x = data.get("x", 0.0)
 			var y = data.get("y", 0.0)
-			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y))
+			var map_id = data.get("map_id", "main")
+			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y), map_id)
 		"pong":
 			var echoed_ms = int(data.get("client_time_ms", -1))
 			if echoed_ms != -1:

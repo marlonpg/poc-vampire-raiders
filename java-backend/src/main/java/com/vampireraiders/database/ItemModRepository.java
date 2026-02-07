@@ -7,11 +7,48 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ItemModRepository {
+    // Cache for mod_templates (never changes in runtime)
+    private static volatile List<Map<String, Object>> modTemplateCache = Collections.emptyList();
+
+    /**
+     * Load all mod templates from database into cache.
+     * Should be called once at startup.
+     */
+    public static synchronized void loadModTemplates() {
+        String sql = "SELECT id, mod_type, mod_value, mod_name FROM mod_templates ORDER BY mod_type, mod_value";
+        List<Map<String, Object>> templates = new ArrayList<>();
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                Map<String, Object> modTemplate = new HashMap<>();
+                modTemplate.put("id", rs.getInt("id"));
+                modTemplate.put("mod_type", rs.getString("mod_type"));
+                modTemplate.put("mod_value", rs.getInt("mod_value"));
+                modTemplate.put("mod_name", rs.getString("mod_name"));
+                templates.add(modTemplate);
+            }
+            modTemplateCache = Collections.unmodifiableList(templates);
+            Logger.info("Loaded " + modTemplateCache.size() + " mod templates into cache");
+        } catch (SQLException e) {
+            Logger.error("Failed to load mod templates: " + e.getMessage());
+        }
+    }
+
+    public static List<Map<String, Object>> getModTemplateCache() {
+        if (modTemplateCache.isEmpty()) {
+            loadModTemplates();
+        }
+        return modTemplateCache;
+    }
 
     public static boolean hasModsForWorldItem(long worldItemId) {
         String sql = "SELECT 1 FROM item_mods WHERE world_item_id = ? LIMIT 1";
@@ -55,36 +92,28 @@ public class ItemModRepository {
     }
 
     public static Integer getModTemplateId(String modType, int modValue) {
-        String sql = "SELECT id FROM mod_templates WHERE mod_type = ? AND mod_value = ? LIMIT 1";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, modType);
-            stmt.setInt(2, modValue);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
+        // Use cached mod templates to avoid DB query
+        for (Map<String, Object> modTemplate : getModTemplateCache()) {
+            if (modType.equals(modTemplate.get("mod_type")) && 
+                modValue == ((Number) modTemplate.get("mod_value")).intValue()) {
+                return ((Number) modTemplate.get("id")).intValue();
             }
-        } catch (SQLException e) {
-            Logger.error("Failed to get mod template id: " + e.getMessage());
         }
         return null;
     }
 
     public static int getMaxModValue(String modType) {
-        String sql = "SELECT COALESCE(MAX(mod_value), 0) AS max_value FROM mod_templates WHERE mod_type = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, modType);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("max_value");
+        // Use cached mod templates to avoid DB query
+        int maxValue = 0;
+        for (Map<String, Object> modTemplate : getModTemplateCache()) {
+            if (modType.equals(modTemplate.get("mod_type"))) {
+                int modValue = ((Number) modTemplate.get("mod_value")).intValue();
+                if (modValue > maxValue) {
+                    maxValue = modValue;
                 }
             }
-        } catch (SQLException e) {
-            Logger.error("Failed to get max mod value: " + e.getMessage());
         }
-        return 0;
+        return maxValue;
     }
 
     /**

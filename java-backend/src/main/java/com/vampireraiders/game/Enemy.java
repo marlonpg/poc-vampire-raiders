@@ -7,6 +7,7 @@ public class Enemy {
     private final int templateId;
     private float x;
     private float y;
+    private final String mapId;
     private int health;
     private final int maxHealth;
     private final int damage;
@@ -36,10 +37,15 @@ public class Enemy {
     private TelegraphType telegraphType;  // Telegraph attack shape and dimensions
 
     public Enemy(float x, float y, EnemyTemplate template) {
+        this(x, y, template, "main");
+    }
+
+    public Enemy(float x, float y, EnemyTemplate template, String mapId) {
         this.id = idCounter++;
         this.templateId = template.getId();
         this.x = x;
         this.y = y;
+        this.mapId = mapId != null ? mapId : "main";
         this.originalSpawnX = x;  // Store original position
         this.originalSpawnY = y;
         this.spawnLevel = 1;  // Default to PV1, will be set by spawner
@@ -81,7 +87,7 @@ public class Enemy {
             float newY = y + (dy / distance) * speed * deltaTime;
             
             // Check if walkable for enemies (enemies can't enter safe zone)
-            if (GameWorld.isEnemyWalkable(newX, newY)) {
+            if (GameWorld.isEnemyWalkable(newX, newY, mapId)) {
                 x = newX;
                 y = newY;
             }
@@ -175,6 +181,12 @@ public class Enemy {
     public int getLevel() { return level; }
     public String getTemplateName() { return templateName; }
     public long getSpawnTime() { return spawnTime; }
+    public String getMapId() { return mapId; }
+
+    public void setPosition(float newX, float newY) {
+        this.x = newX;
+        this.y = newY;
+    }
     
     // Telegraph attack getters and setters
     public AttackState getAttackState() { return attackState; }

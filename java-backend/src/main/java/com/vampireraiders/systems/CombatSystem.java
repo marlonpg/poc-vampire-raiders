@@ -5,7 +5,6 @@ import com.vampireraiders.database.InventoryRepository;
 import com.vampireraiders.database.ItemModRepository;
 import com.vampireraiders.database.WorldItemRepository;
 import com.vampireraiders.game.*;
-import com.vampireraiders.systems.ItemDropService;
 import com.vampireraiders.util.Logger;
 
 import java.util.Map;
@@ -37,12 +36,13 @@ public class CombatSystem {
 
             for (Enemy enemy : state.getAllEnemies()) {
                 if (!enemy.isAlive()) continue;
+                if (!enemy.getMapId().equals(player.getMapId())) continue;
 
                 float distance = calculateDistance(player.getX(), player.getY(), 
                                                  enemy.getX(), enemy.getY());
 
                 // Skip damage if player is inside safe zone
-                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
+                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY(), player.getMapId())) {
                     // Only cancel attack if not already telegraphing (let telegraph complete)
                     if (enemy.getAttackState() != Enemy.AttackState.TELEGRAPHING) {
                         enemy.endAttack();
@@ -64,7 +64,7 @@ public class CombatSystem {
 
                         // Broadcast damage event for client-side visual feedback
                         if (stateSync != null) {
-                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY());
+                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY(), player.getMapId());
                         }
 
                         if (!player.isAlive()) {
@@ -72,7 +72,7 @@ public class CombatSystem {
                             // On death: drop all equipped + inventory items to the world
                             dropAllItemsForPlayer(state, player);
                             // Respawn at safe zone center (get tilemap from GameWorld)
-                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
+                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap(player.getMapId()));
                         }
                     }
                     enemy.endAttack();  // Reset to IDLE for next attack
@@ -146,6 +146,7 @@ public class CombatSystem {
 
         for (Player player : state.getAllPlayers().values()) {
             if (!player.isAlive()) continue;
+            if (!player.getMapId().equals(enemy.getMapId())) continue;
 
             float distance = calculateDistance(player.getX(), player.getY(),
                                              enemy.getX(), enemy.getY());
@@ -165,7 +166,7 @@ public class CombatSystem {
         // Drop item asynchronously to avoid blocking game loop
         new Thread(() -> {
             try {
-                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
+                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY(), enemy.getMapId());
                 if (dropped != null) {
                     state.addWorldItem(dropped);
                     Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
@@ -194,10 +195,10 @@ public class CombatSystem {
             totalDefense += ((Number) armor.get("defense")).intValue();
         }
         
-        // Add helmet defense
-        Map<String, Object> helmet = equipped.get("helmet");
-        if (helmet != null && helmet.get("defense") instanceof Number) {
-            totalDefense += ((Number) helmet.get("defense")).intValue();
+        // Add gloves defense
+        Map<String, Object> gloves = equipped.get("gloves");
+        if (gloves != null && gloves.get("defense") instanceof Number) {
+            totalDefense += ((Number) gloves.get("defense")).intValue();
         }
         
         // Add boots defense
@@ -220,7 +221,7 @@ public class CombatSystem {
 
         int index = 0; // Used to spread items around
 
-        // 1) Drop equipped items first (weapon, armor, helmet, boots)
+        // 1) Drop equipped items first (weapon, armor, gloves, boots)
         Map<String, Map<String, Object>> equipped = EquippedItemRepository.getEquippedItems(playerId);
         for (Map.Entry<String, Map<String, Object>> entry : equipped.entrySet()) {
             String slotType = entry.getKey();

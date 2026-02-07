@@ -147,13 +147,14 @@ func _on_inventory(data: Dictionary):
 		payload[k] = data[k]
 	server_message.emit(payload)
 
-func _on_damage_event(target_id: int, target_type: String, damage: int, position: Vector2):
+func _on_damage_event(target_id: int, target_type: String, damage: int, position: Vector2, map_id: String):
 	server_message.emit({
 		"type": "player_damage",
 		"victim_id": target_id,
 		"damage": damage,
 		"x": position.x,
-		"y": position.y
+		"y": position.y,
+		"map_id": map_id
 	})
 
 func disconnect_from_server():
