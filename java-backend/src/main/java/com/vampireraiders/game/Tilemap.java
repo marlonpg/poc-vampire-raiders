@@ -177,6 +177,24 @@ public class Tilemap {
         }
         return positions;
     }
+
+    /**
+     * Get tiles suitable for portal placement (walkable, non-safe).
+     */
+    public List<TilePosition> getPortalCandidates() {
+        List<TilePosition> positions = new ArrayList<>();
+        for (int x = 0; x < mapWidth; x++) {
+            for (int y = 0; y < mapHeight; y++) {
+                TileType type = tiles[x][y];
+                if (type.isPlayerWalkable() && !type.isSafeZone()) {
+                    float worldX = (x + 0.5f) * TILE_SIZE;
+                    float worldY = (y + 0.5f) * TILE_SIZE;
+                    positions.add(new TilePosition(x, y, worldX, worldY));
+                }
+            }
+        }
+        return positions;
+    }
     
     /**
      * Elite spawn point data

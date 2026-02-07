@@ -17,6 +17,9 @@ const TILE_PV2 = "PV2"  # Worm
 const TILE_PV3 = "PV3"  # Wild Dog
 const TILE_PV4 = "PV4"  # Goblin
 
+const PORTAL_COLOR = Color(0.2, 0.6, 1.0, 0.9)
+const PORTAL_RADIUS = 20.0
+
 # Colors for each tile type
 const TILE_COLORS = {
 	TILE_BLK: Color(0.2, 0.2, 0.2, 0.8),      # Gray
@@ -37,22 +40,11 @@ var tilemap: Array = []
 var map_width: int = MAP_GRIDS
 var map_height: int = MAP_GRIDS
 var tilemap_loaded: bool = false
+var portal_positions: Array = []
+var current_map_id: String = "main"
 
 func _ready() -> void:
-	# Load map from file (same map as server uses)
-	var map_data = MapLoader.load_map("main-map.txt")
-	if map_data.is_empty():
-		push_error("Failed to load map file")
-		return
-	
-	# Convert tiles array to the format we need
-	var tiles_list = map_data["tiles"]
-	map_width = map_data["width"]
-	map_height = map_data["height"]
-	
-	# Store tiles as 2D array for access
-	tilemap = tiles_list
-	tilemap_loaded = true
+	set_map_by_id("main")
 
 func _draw() -> void:
 	var screen_size = get_viewport_rect().size
@@ -86,6 +78,10 @@ func _draw() -> void:
 				var tile_pos = Vector2(x * GRID_SIZE, y * GRID_SIZE)
 				var tile_rect = Rect2(tile_pos, Vector2(GRID_SIZE, GRID_SIZE))
 				draw_rect(tile_rect, color, true)
+
+	# Draw portals
+	for portal_pos in portal_positions:
+		draw_circle(portal_pos, PORTAL_RADIUS, PORTAL_COLOR)
 	
 	# Draw grid lines (only on map area)
 	var start_x = int((cam_pos.x - screen_size.x / zoom) / GRID_SIZE) * GRID_SIZE
@@ -100,6 +96,26 @@ func _draw() -> void:
 		draw_line(Vector2(start_x, y), Vector2(end_x, y), LINE_COLOR, 1.0)
 
 func _process(_delta: float) -> void:
+	queue_redraw()
+
+func set_map_by_id(map_id: String) -> void:
+	var filename = "main-map.txt" if map_id == "main" else "%s.txt" % map_id
+	var map_data = MapLoader.load_map(filename)
+	if map_data.is_empty():
+		push_error("Failed to load map file: " + filename)
+		return
+	current_map_id = map_id
+	# Convert tiles array to the format we need
+	var tiles_list = map_data["tiles"]
+	map_width = map_data["width"]
+	map_height = map_data["height"]
+	# Store tiles as 2D array for access
+	tilemap = tiles_list
+	tilemap_loaded = true
+	queue_redraw()
+
+func set_portals(portals: Array) -> void:
+	portal_positions = portals
 	queue_redraw()
 
 # Called from game state sync to update tilemap from server

@@ -16,6 +16,7 @@ public class MeleeAttack {
     private final int playerId;  // peer_id of player who attacked
     private final float x;  // Player x position at attack time
     private final float y;  // Player y position at attack time
+    private final String mapId;
     private final float radius;  // Semicircle radius
     private final long startTimeMs;  // When the attack was initiated
     private final long durationMs;  // How long the attack lasts
@@ -27,7 +28,7 @@ public class MeleeAttack {
     // Track which enemies have been hit to prevent multiple hits per attack
     private final Set<Integer> hitEnemies = new HashSet<>();
 
-    public MeleeAttack(int playerId, float x, float y, float radius, long durationMs, float directionDegrees) {
+    public MeleeAttack(int playerId, float x, float y, float radius, long durationMs, float directionDegrees, String mapId) {
         this.id = idCounter++;
         this.playerId = playerId;
         this.x = x;
@@ -36,6 +37,7 @@ public class MeleeAttack {
         this.durationMs = durationMs;
         this.startTimeMs = System.currentTimeMillis();
         this.directionDegrees = directionDegrees % 360f;
+        this.mapId = mapId != null ? mapId : "main";
     }
 
     public boolean isActive(long currentTimeMs) {
@@ -59,4 +61,5 @@ public class MeleeAttack {
     public long getStartTimeMs() { return startTimeMs; }
     public long getDurationMs() { return durationMs; }
     public float getDirectionDegrees() { return directionDegrees; }
+    public String getMapId() { return mapId; }
 }

@@ -19,9 +19,11 @@ public class Player {
     private float velocityX;
     private float velocityY;
     private float moveSpeed = 100f;  // Default from database
+    private String mapId = "main";
     private long lastUpdateTime;
     private long lastAttackTime = 0;
     private final long baseAttackCooldownMs = 1000;  // Base: 1 attack per second
+    private long lastPortalTime = 0;
 
     // Cached equipped weapon stats (to avoid DB queries every attack)
     private float cachedAttackSpeed = 0.5f;
@@ -145,8 +147,24 @@ public class Player {
         return velocityY;
     }
 
+    public String getMapId() {
+        return mapId;
+    }
+
+    public void setMapId(String mapId) {
+        this.mapId = mapId != null ? mapId : "main";
+    }
+
     public long getLastUpdateTime() {
         return lastUpdateTime;
+    }
+
+    public long getLastPortalTime() {
+        return lastPortalTime;
+    }
+
+    public void setLastPortalTime(long lastPortalTime) {
+        this.lastPortalTime = lastPortalTime;
     }
 
     // Setters (for loading from database)

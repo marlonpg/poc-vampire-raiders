@@ -5,7 +5,7 @@ const PORT := 7777
 signal game_state_received(data: Dictionary)
 signal inventory_received(data: Dictionary)
 signal item_picked_up(world_item_id: int)
-signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2)
+signal damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2, map_id: String)
 signal latency_updated(rtt_ms: float)
 
 var socket: StreamPeerTCP
@@ -128,7 +128,8 @@ func _handle_server_message(data: Dictionary):
 			var damage = data.get("damage", 0)
 			var x = data.get("x", 0.0)
 			var y = data.get("y", 0.0)
-			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y))
+			var map_id = data.get("map_id", "main")
+			damage_event_received.emit(target_id, target_type, damage, Vector2(x, y), map_id)
 		"pong":
 			var echoed_ms = int(data.get("client_time_ms", -1))
 			if echoed_ms != -1:

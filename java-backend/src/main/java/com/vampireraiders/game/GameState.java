@@ -11,6 +11,7 @@ public class GameState {
     private final List<Bullet> bullets = Collections.synchronizedList(new ArrayList<>());
     private final List<MeleeAttack> meleeAttacks = Collections.synchronizedList(new ArrayList<>());
     private final List<WorldItem> worldItems = Collections.synchronizedList(new ArrayList<>());
+    private List<Portal> portals = Collections.synchronizedList(new ArrayList<>());
     private long worldTime = 0;
     private boolean running = false;
 
@@ -139,5 +140,17 @@ public class GameState {
         if (target != null) {
             worldItems.remove(target);
         }
+    }
+
+    public List<Portal> getPortals() {
+        return new ArrayList<>(portals);
+    }
+
+    public void setPortals(List<Portal> portals) {
+        if (portals == null) {
+            this.portals = Collections.synchronizedList(new ArrayList<>());
+            return;
+        }
+        this.portals = Collections.synchronizedList(new ArrayList<>(portals));
     }
 }

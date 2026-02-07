@@ -7,6 +7,7 @@ public class Bullet {
     private final int shooterId;  // peer_id of player who shot
     private float x;
     private float y;
+    private final String mapId;
     private float vx;  // velocity x
     private float vy;  // velocity y
     private final float speed = 400f;
@@ -14,11 +15,12 @@ public class Bullet {
     private float age = 0f;
     private final float radius = 5f;
 
-    public Bullet(int shooterId, float x, float y, float targetX, float targetY) {
+    public Bullet(int shooterId, float x, float y, float targetX, float targetY, String mapId) {
         this.id = idCounter++;
         this.shooterId = shooterId;
         this.x = x;
         this.y = y;
+        this.mapId = mapId != null ? mapId : "main";
 
         // Calculate direction towards target
         float dx = targetX - x;
@@ -60,4 +62,5 @@ public class Bullet {
     public float getVy() { return vy; }
     public float getRadius() { return radius; }
     public float getAge() { return age; }
+    public String getMapId() { return mapId; }
 }

@@ -24,6 +24,7 @@ var local_max_health: int = 100
 var local_level: int = 1
 var local_xp: int = 0
 var damage_container: Node2D = null
+var current_map_id: String = "main"
 const DROP_SFX_MAX_DISTANCE := 450.0
 var drop_sfx_enabled: bool = false
 
@@ -39,6 +40,7 @@ var enemy_last_health: Dictionary = {}  # Track previous health per enemy ID
 var player_last_health: int = 100  # Track previous player health
 
 @onready var world_item_scene: PackedScene = preload("res://scenes/gameplay/WorldItem.tscn")
+@onready var grid_background: Node2D = $Grid
 
 const HEALTH_BAR_WIDTH := 220.0
 const XP_BAR_WIDTH := 1280.0
@@ -156,6 +158,7 @@ func _on_game_state_received(data: Dictionary):
 	var enemies_data = data.get("enemies", [])
 	var bullets_data = data.get("bullets", [])
 	var world_items_data = data.get("world_items", [])
+	var portals_data = data.get("portals", [])
 	
 	#print("[GAME_STATE] Received: %d players, %d enemies, %d bullets, %d items" % [players.size(), enemies_data.size(), bullets_data.size(), world_items_data.size()])
 	
@@ -174,6 +177,7 @@ func _on_game_state_received(data: Dictionary):
 
 	# Update world items (drops)
 	_update_world_items(world_items_data)
+	_update_portals(portals_data)
 
 	# Enable drop SFX after first state so we don't play a burst on join.
 	if not drop_sfx_enabled:
@@ -192,6 +196,7 @@ func _update_players(players_data: Array) -> void:
 	var server_ids := {}
 	for p in players_data:
 		var pid = p.get("peer_id")
+		var map_id = p.get("map_id", "main")
 		server_ids[pid] = true
 
 		# Local player: keep existing instance but update position/health
@@ -201,6 +206,7 @@ func _update_players(players_data: Array) -> void:
 			local_max_health = p.get("max_health", local_max_health)
 			local_level = p.get("level", local_level)
 			local_xp = p.get("xp", local_xp)
+			_set_current_map(map_id)
 			#_log_client("Local player data: Level=%d, XP=%d, HP=%d/%d" % [local_level, local_xp, p.get("health", 100), local_max_health])
 			if player_instance:
 				#_log_client("Updating local player at (%.0f, %.0f)" % [p.get("x", 0), p.get("y", 0)])
@@ -238,6 +244,12 @@ func _update_players(players_data: Array) -> void:
 			player_last_health = p.get("health", 100)
 		else:
 			# Remote players
+			if map_id != current_map_id:
+				if other_players.has(pid) and is_instance_valid(other_players[pid]):
+					other_players[pid].queue_free()
+					other_players.erase(pid)
+				continue
+
 			if not other_players.has(pid) and player_scene:
 				_log_client("Spawning remote player %d" % pid)
 				var remote = player_scene.instantiate()
@@ -269,10 +281,57 @@ func _update_players(players_data: Array) -> void:
 	for pid in to_remove:
 		other_players.erase(pid)
 
+func _set_current_map(map_id: String) -> void:
+	if map_id == current_map_id:
+		return
+	current_map_id = map_id
+	if grid_background and grid_background.has_method("set_map_by_id"):
+		grid_background.set_map_by_id(map_id)
+	_clear_map_entities()
+	_update_portals([])
+
+func _clear_map_entities() -> void:
+	for enemy_id in enemies.keys():
+		if is_instance_valid(enemies[enemy_id]):
+			enemies[enemy_id].queue_free()
+	enemies.clear()
+
+	for bullet_id in bullets.keys():
+		if is_instance_valid(bullets[bullet_id]):
+			bullets[bullet_id].queue_free()
+	bullets.clear()
+
+	for item_id in world_items.keys():
+		if is_instance_valid(world_items[item_id]):
+			world_items[item_id].queue_free()
+	world_items.clear()
+
+	for pid in other_players.keys():
+		if is_instance_valid(other_players[pid]):
+			other_players[pid].queue_free()
+	other_players.clear()
+
+	melee_attacks.clear()
+	enemy_last_health.clear()
+
+func _update_portals(portals_data: Array) -> void:
+	var portal_positions: Array = []
+	if current_map_id == "main":
+		for portal in portals_data:
+			var map_id = portal.get("map_id", "main")
+			if map_id != "main":
+				continue
+			portal_positions.append(Vector2(portal.get("x", 0.0), portal.get("y", 0.0)))
+	if grid_background and grid_background.has_method("set_portals"):
+		grid_background.set_portals(portal_positions)
+
 func _update_world_items(items_data: Array):
 	"""Spawn/update/remove world item drops sent by server"""
 	var server_ids := {}
 	for item_data in items_data:
+		var map_id = item_data.get("map_id", "main")
+		if map_id != current_map_id:
+			continue
 		var item_id = item_data.get("id")
 		server_ids[item_id] = true
 		if not world_items.has(item_id):
@@ -336,6 +395,9 @@ func _update_enemies(enemies_data: Array):
 	var server_ids = {}
 	
 	for enemy_data in enemies_data:
+		var map_id = enemy_data.get("map_id", "main")
+		if map_id != current_map_id:
+			continue
 		var enemy_id = enemy_data.get("id")
 		var template_name = enemy_data.get("type", "Unknown")
 		
@@ -403,6 +465,9 @@ func _update_bullets(bullets_data: Array):
 	var server_ids = {}
 	
 	for bullet_data in bullets_data:
+		var map_id = bullet_data.get("map_id", "main")
+		if map_id != current_map_id:
+			continue
 		var bullet_id = bullet_data.get("id")
 		server_ids[bullet_id] = true
 		
@@ -445,6 +510,9 @@ func _update_melee_attacks(melee_data: Array):
 	var server_ids = {}
 	var current_time_ms = Time.get_ticks_msec()
 	for attack in melee_data:
+		var map_id = attack.get("map_id", "main")
+		if map_id != current_map_id:
+			continue
 		var attack_id = attack.get("id")
 		server_ids[attack_id] = true
 
@@ -639,8 +707,10 @@ func _on_local_player_died():
 func _show_result_screen():
 	get_tree().change_scene_to_file("res://scenes/ui/ResultScreen.tscn")
 
-func _on_damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2):
+func _on_damage_event_received(target_id: int, target_type: String, damage: int, position: Vector2, map_id: String):
 	"""Handle damage event from server"""
+	if map_id != current_map_id:
+		return
 	print("[DAMAGE_EVENT] %s ID:%d took %d damage at (%.0f, %.0f)" % [target_type, target_id, damage, position.x, position.y])
 	_show_damage_number(position, damage, target_type == "player")
 

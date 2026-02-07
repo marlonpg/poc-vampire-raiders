@@ -6,8 +6,11 @@ import com.vampireraiders.systems.StateSync;
 import com.vampireraiders.util.Logger;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
+import java.util.Random;
 
 public class GameWorld {
     private static Tilemap tilemap;
@@ -21,12 +24,23 @@ public class GameWorld {
     private long lastPlayerSaveTime = 0;
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
     private static final float ENEMY_MIN_SEPARATION = 24f;
+    private static final int PORTAL_COUNT = 3;
+    private static final float PORTAL_RADIUS = 32f;
+    private static final long PORTAL_COOLDOWN_MS = 1000;
+
+    private static final Map<String, Tilemap> mapInstances = new HashMap<>();
+    private static final Map<String, String> mapFiles = new HashMap<>();
+    private final List<Portal> portals = new ArrayList<>();
+    private final Random random = new Random();
 
     public GameWorld() {
         this(null);
     }
     
     public GameWorld(String mapFile) {
+        mapInstances.clear();
+        mapFiles.clear();
+        portals.clear();
         // Load map
         if (mapFile == null || mapFile.isEmpty()) {
             mapFile = "main-map.txt"; // Default map
@@ -34,10 +48,47 @@ public class GameWorld {
         tilemap = MapLoader.loadMap(mapFile);
         WORLD_WIDTH = tilemap.getMapWidth() * GRID_SIZE;
         WORLD_HEIGHT = tilemap.getMapHeight() * GRID_SIZE;
-        
+
+        mapInstances.put("main", tilemap);
+        mapFiles.put("main", mapFile);
+
         this.state = new GameState();
         this.combatSystem = new CombatSystem();
         this.stateSync = null;
+
+        initializeDungeonPortals();
+        this.state.setPortals(portals);
+    }
+
+    private void initializeDungeonPortals() {
+        List<String> dungeonFiles = List.of(
+            "dungeon-1.txt",
+            "dungeon-2.txt",
+            "dungeon-3.txt"
+        );
+
+        List<Tilemap.TilePosition> portalTiles = tilemap.getPortalCandidates();
+        if (portalTiles.isEmpty()) {
+            Logger.warn("No portal candidate tiles available for portal placement.");
+            return;
+        }
+
+        for (int i = 0; i < PORTAL_COUNT && !portalTiles.isEmpty(); i++) {
+            int index = random.nextInt(portalTiles.size());
+            Tilemap.TilePosition pos = portalTiles.remove(index);
+            String dungeonFile = dungeonFiles.get(random.nextInt(dungeonFiles.size()));
+            String mapId = dungeonFile.replace(".txt", "");
+
+            if (!mapInstances.containsKey(mapId)) {
+                Tilemap dungeonMap = MapLoader.loadMap(dungeonFile);
+                mapInstances.put(mapId, dungeonMap);
+                mapFiles.put(mapId, dungeonFile);
+            }
+
+            portals.add(new Portal(pos.worldX, pos.worldY, mapId));
+        }
+
+        Logger.info("Spawned " + portals.size() + " dungeon portals.");
     }
 
     public void setStateSync(StateSync stateSync) {
@@ -61,6 +112,7 @@ public class GameWorld {
             if (player.isAlive()) {
                 float oldX = player.getX();
                 float oldY = player.getY();
+                String mapId = player.getMapId();
                 
                 player.update(deltaTime);
                 
@@ -68,26 +120,28 @@ public class GameWorld {
                 float newY = player.getY();
                 
                 // Check if new position is walkable
-                if (!isWalkable(newX, newY)) {
+                if (!isWalkable(newX, newY, mapId)) {
                     // Revert to old position if blocked
                     player.setPosition(oldX, oldY);
                 } else {
                     // Apply world bounds clamping only if walkable
-                    clampPlayerPosition(player);
+                    clampPlayerPosition(player, mapId);
                 }
+
+                handlePortalTransition(player, currentTime);
             }
         }
 
         // Auto-attack: players fire bullets or melee attacks at nearest enemy
         for (Player player : state.getAllPlayers().values()) {
-            if (player.isAlive() && !isInSafeZone(player.getX(), player.getY())) {
+            if (player.isAlive() && !isInSafeZone(player.getX(), player.getY(), player.getMapId())) {
                 Enemy target = findNearestEnemyForAttack(player);
                 if (target != null && player.canAttack()) {
                     String attackType = player.getEquippedAttackType();
                     
                     if ("ranged".equals(attackType)) {
                         // Ranged attack: use bullet
-                        Bullet bullet = new Bullet(player.getPeerId(), player.getX(), player.getY(), target.getX(), target.getY());
+                        Bullet bullet = new Bullet(player.getPeerId(), player.getX(), player.getY(), target.getX(), target.getY(), player.getMapId());
                         state.addBullet(bullet);
                     } else {
                         // Melee attack: use semicircle
@@ -101,7 +155,7 @@ public class GameWorld {
                         float directionDegrees = (float) Math.toDegrees(Math.atan2(dy, dx));
                         
                         MeleeAttack attack = new MeleeAttack(player.getPeerId(), player.getX(), player.getY(), 
-                                                             radius, durationMs, directionDegrees);
+                                                             radius, durationMs, directionDegrees, player.getMapId());
                         state.addMeleeAttack(attack);
                     }
                     player.recordAttack();
@@ -113,11 +167,14 @@ public class GameWorld {
         for (Enemy enemy : state.getAllEnemies()) {
             if (enemy.isAlive()) {
                 // Find nearest player
-                Player nearestPlayer = findNearestPlayer(enemy.getX(), enemy.getY());
+                Player nearestPlayer = findNearestPlayer(enemy.getX(), enemy.getY(), enemy.getMapId());
                 // Get the targeted player if enemy has aggro
                 Player targetedPlayer = null;
                 if (enemy.getTargetPlayerId() >= 0) {
                     targetedPlayer = state.getPlayer(enemy.getTargetPlayerId());
+                    if (targetedPlayer != null && !enemy.getMapId().equals(targetedPlayer.getMapId())) {
+                        targetedPlayer = null;
+                    }
                 }
                 enemy.update(deltaTime, nearestPlayer, targetedPlayer);
             }
@@ -134,6 +191,9 @@ public class GameWorld {
         // Check bullet-enemy collisions
         for (Bullet bullet : new ArrayList<>(state.getAllBullets())) {
             for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
+                if (!bullet.getMapId().equals(enemy.getMapId())) {
+                    continue;
+                }
                 if (bullet.collidedWith(enemy)) {
                     Player shooter = state.getPlayer(bullet.getShooterId());
                     int bulletDamage = shooter.getCachedTotalDamage();
@@ -149,7 +209,7 @@ public class GameWorld {
                     
                     // Broadcast damage event for client-side visual feedback
                     if (stateSync != null) {
-                        stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
+                        stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY(), enemy.getMapId());
                     }
                     
                     state.removeBullet(bullet);
@@ -174,6 +234,9 @@ public class GameWorld {
             }
             
             for (Enemy enemy : new ArrayList<>(state.getAllEnemies())) {
+                if (!attack.getMapId().equals(enemy.getMapId())) {
+                    continue;
+                }
                 // Skip if this enemy was already hit by this attack
                 if (attack.hasHitEnemy(enemy.getId())) {
                     continue;
@@ -194,7 +257,7 @@ public class GameWorld {
                 
                 // Broadcast damage event for client-side visual feedback
                 if (stateSync != null) {
-                    stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY());
+                    stateSync.broadcastDamageEvent(enemy.getId(), "enemy", effectiveDamage, enemy.getX(), enemy.getY(), enemy.getMapId());
                 }
             }
         }
@@ -257,6 +320,7 @@ public class GameWorld {
 
         for (Enemy enemy : state.getAllEnemies()) {
             if (!enemy.isAlive()) continue;
+            if (!enemy.getMapId().equals(player.getMapId())) continue;
 
             float dx = enemy.getX() - player.getX();
             float dy = enemy.getY() - player.getY();
@@ -271,25 +335,28 @@ public class GameWorld {
         return nearest;
     }
 
-    private void clampPlayerPosition(Player player) {
+    private void clampPlayerPosition(Player player, String mapId) {
         float x = player.getX();
         float y = player.getY();
+        int worldWidth = getWorldWidth(mapId);
+        int worldHeight = getWorldHeight(mapId);
         
         // Clamp to world bounds
         if (x < 0) x = 0;
-        if (x > WORLD_WIDTH) x = WORLD_WIDTH;
+        if (x > worldWidth) x = worldWidth;
         if (y < 0) y = 0;
-        if (y > WORLD_HEIGHT) y = WORLD_HEIGHT;
+        if (y > worldHeight) y = worldHeight;
         
         player.setPosition(x, y);
     }
 
-    private Player findNearestPlayer(float x, float y) {
+    private Player findNearestPlayer(float x, float y, String mapId) {
         Player nearest = null;
         float closestDistance = Float.MAX_VALUE;
 
         for (Player player : state.getAllPlayers().values()) {
             if (!player.isAlive()) continue;
+            if (!player.getMapId().equals(mapId)) continue;
             
             float dx = player.getX() - x;
             float dy = player.getY() - y;
@@ -355,12 +422,36 @@ public class GameWorld {
     public static int getWorldWidth() { return WORLD_WIDTH; }
     public static int getWorldHeight() { return WORLD_HEIGHT; }
     public static int getGridSize() { return GRID_SIZE; }
+
+    public static int getWorldWidth(String mapId) {
+        Tilemap map = getTilemap(mapId);
+        if (map == null) {
+            return WORLD_WIDTH;
+        }
+        return map.getMapWidth() * GRID_SIZE;
+    }
+
+    public static int getWorldHeight(String mapId) {
+        Tilemap map = getTilemap(mapId);
+        if (map == null) {
+            return WORLD_HEIGHT;
+        }
+        return map.getMapHeight() * GRID_SIZE;
+    }
     
     /**
      * Check if position is in safe zone
      */
     public static boolean isInSafeZone(float x, float y) {
         return tilemap.isInSafeZone(x, y);
+    }
+
+    public static boolean isInSafeZone(float x, float y, String mapId) {
+        Tilemap map = getTilemap(mapId);
+        if (map == null) {
+            return false;
+        }
+        return map.isInSafeZone(x, y);
     }
     
     /**
@@ -369,12 +460,28 @@ public class GameWorld {
     public static boolean isWalkable(float x, float y) {
         return tilemap.isWalkable(x, y);
     }
+
+    public static boolean isWalkable(float x, float y, String mapId) {
+        Tilemap map = getTilemap(mapId);
+        if (map == null) {
+            return false;
+        }
+        return map.isWalkable(x, y);
+    }
     
     /**
      * Check if position is walkable for enemies (tile-based)
      */
     public static boolean isEnemyWalkable(float x, float y) {
         return tilemap.isEnemyWalkable(x, y);
+    }
+
+    public static boolean isEnemyWalkable(float x, float y, String mapId) {
+        Tilemap map = getTilemap(mapId);
+        if (map == null) {
+            return false;
+        }
+        return map.isEnemyWalkable(x, y);
     }
     
     /**
@@ -389,6 +496,43 @@ public class GameWorld {
      */
     public static Tilemap getTilemap() {
         return tilemap;
+    }
+
+    public static Tilemap getTilemap(String mapId) {
+        if (mapId == null || mapId.isEmpty()) {
+            return tilemap;
+        }
+        return mapInstances.getOrDefault(mapId, tilemap);
+    }
+
+    private void handlePortalTransition(Player player, long currentTimeMs) {
+        if (!"main".equals(player.getMapId())) {
+            return;
+        }
+        if (currentTimeMs - player.getLastPortalTime() < PORTAL_COOLDOWN_MS) {
+            return;
+        }
+
+        for (Portal portal : portals) {
+            float dx = player.getX() - portal.getX();
+            float dy = player.getY() - portal.getY();
+            float distSq = dx * dx + dy * dy;
+            if (distSq <= PORTAL_RADIUS * PORTAL_RADIUS) {
+                String targetMapId = portal.getTargetMapId();
+                Tilemap targetMap = getTilemap(targetMapId);
+                if (targetMap == null) {
+                    Logger.warn("Portal target map not found: " + targetMapId);
+                    return;
+                }
+                float[] center = targetMap.getSafeZoneCenter();
+                player.setMapId(targetMapId);
+                player.setPosition(center[0], center[1]);
+                player.setInputDirection(0, 0);
+                player.setLastPortalTime(currentTimeMs);
+                Logger.info("Player " + player.getUsername() + " entered portal to " + targetMapId);
+                return;
+            }
+        }
     }
 
     private void resolveEnemyOverlap() {
@@ -432,10 +576,10 @@ public class GameWorld {
                 float bx = b.getX() + nx * overlap;
                 float by = b.getY() + ny * overlap;
 
-                if (isEnemyWalkable(ax, ay)) {
+                if (a.getMapId().equals(b.getMapId()) && isEnemyWalkable(ax, ay, a.getMapId())) {
                     a.setPosition(ax, ay);
                 }
-                if (isEnemyWalkable(bx, by)) {
+                if (a.getMapId().equals(b.getMapId()) && isEnemyWalkable(bx, by, b.getMapId())) {
                     b.setPosition(bx, by);
                 }
             }

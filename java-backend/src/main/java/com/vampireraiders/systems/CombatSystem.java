@@ -36,12 +36,13 @@ public class CombatSystem {
 
             for (Enemy enemy : state.getAllEnemies()) {
                 if (!enemy.isAlive()) continue;
+                if (!enemy.getMapId().equals(player.getMapId())) continue;
 
                 float distance = calculateDistance(player.getX(), player.getY(), 
                                                  enemy.getX(), enemy.getY());
 
                 // Skip damage if player is inside safe zone
-                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY())) {
+                if (com.vampireraiders.game.GameWorld.isInSafeZone(player.getX(), player.getY(), player.getMapId())) {
                     // Only cancel attack if not already telegraphing (let telegraph complete)
                     if (enemy.getAttackState() != Enemy.AttackState.TELEGRAPHING) {
                         enemy.endAttack();
@@ -63,7 +64,7 @@ public class CombatSystem {
 
                         // Broadcast damage event for client-side visual feedback
                         if (stateSync != null) {
-                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY());
+                            stateSync.broadcastDamageEvent(player.getPeerId(), "player", effectiveDamage, player.getX(), player.getY(), player.getMapId());
                         }
 
                         if (!player.isAlive()) {
@@ -71,7 +72,7 @@ public class CombatSystem {
                             // On death: drop all equipped + inventory items to the world
                             dropAllItemsForPlayer(state, player);
                             // Respawn at safe zone center (get tilemap from GameWorld)
-                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap());
+                            respawnPlayer(player, com.vampireraiders.game.GameWorld.getTilemap(player.getMapId()));
                         }
                     }
                     enemy.endAttack();  // Reset to IDLE for next attack
@@ -145,6 +146,7 @@ public class CombatSystem {
 
         for (Player player : state.getAllPlayers().values()) {
             if (!player.isAlive()) continue;
+            if (!player.getMapId().equals(enemy.getMapId())) continue;
 
             float distance = calculateDistance(player.getX(), player.getY(),
                                              enemy.getX(), enemy.getY());
@@ -164,7 +166,7 @@ public class CombatSystem {
         // Drop item asynchronously to avoid blocking game loop
         new Thread(() -> {
             try {
-                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY());
+                WorldItem dropped = itemDropService.dropFromEnemy(enemy.getTemplateId(), enemy.getX(), enemy.getY(), enemy.getMapId());
                 if (dropped != null) {
                     state.addWorldItem(dropped);
                     Logger.info("Dropped world item id=" + dropped.getId() + " template=" + dropped.getItemTemplateId() + " at (" + dropped.getX() + "," + dropped.getY() + ")");
