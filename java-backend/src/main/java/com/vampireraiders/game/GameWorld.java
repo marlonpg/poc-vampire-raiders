@@ -2,15 +2,18 @@ package com.vampireraiders.game;
 
 import com.vampireraiders.database.PlayerRepository;
 import com.vampireraiders.systems.CombatSystem;
+import com.vampireraiders.systems.SpawnerSystem;
 import com.vampireraiders.systems.StateSync;
 import com.vampireraiders.util.Logger;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 
 public class GameWorld {
     private static Tilemap tilemap;
@@ -20,6 +23,7 @@ public class GameWorld {
 
     private final GameState state;
     private final CombatSystem combatSystem;
+    private SpawnerSystem spawnerSystem;
     private StateSync stateSync;
     private long lastPlayerSaveTime = 0;
     private static final long PLAYER_SAVE_INTERVAL_MS = 30000; // Save every 30 seconds
@@ -31,6 +35,7 @@ public class GameWorld {
     private static final Map<String, Tilemap> mapInstances = new HashMap<>();
     private static final Map<String, String> mapFiles = new HashMap<>();
     private final List<Portal> portals = new ArrayList<>();
+    private final Set<String> seededMaps = new HashSet<>();
     private final Random random = new Random();
 
     public GameWorld() {
@@ -94,6 +99,11 @@ public class GameWorld {
 
     public void setStateSync(StateSync stateSync) {
         this.stateSync = stateSync;
+    }
+
+    public void setSpawnerSystem(SpawnerSystem spawnerSystem) {
+        this.spawnerSystem = spawnerSystem;
+        seedExistingDungeons();
     }
 
     public void update(float deltaTime) {
@@ -525,6 +535,7 @@ public class GameWorld {
                     Logger.warn("Portal target map not found: " + targetMapId);
                     return;
                 }
+                ensureDungeonSeeded(targetMapId);
                 float[] center = targetMap.getSafeZoneCenter();
                 player.setMapId(targetMapId);
                 player.setPosition(center[0], center[1]);
@@ -534,6 +545,30 @@ public class GameWorld {
                 return;
             }
         }
+    }
+
+    private void seedExistingDungeons() {
+        for (String mapId : mapInstances.keySet()) {
+            if ("main".equals(mapId)) {
+                continue;
+            }
+            ensureDungeonSeeded(mapId);
+        }
+    }
+
+    private void ensureDungeonSeeded(String mapId) {
+        if (mapId == null || mapId.isEmpty() || "main".equals(mapId)) {
+            return;
+        }
+        if (seededMaps.contains(mapId)) {
+            return;
+        }
+        if (spawnerSystem == null) {
+            Logger.warn("SpawnerSystem not set; cannot seed dungeon: " + mapId);
+            return;
+        }
+        spawnerSystem.spawnInitialEnemiesForMap(mapId);
+        seededMaps.add(mapId);
     }
 
     private void resolveEnemyOverlap() {

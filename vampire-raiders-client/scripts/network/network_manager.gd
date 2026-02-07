@@ -18,6 +18,7 @@ var connection_time: float = 0.0
 var last_status: int = -1
 var heartbeat_timer: float = 0.0
 var heartbeat_interval: float = 5.0
+var recv_buffer: String = ""
 
 # RTT (ping) tracking
 var last_rtt_ms: float = -1.0
@@ -99,14 +100,19 @@ func _process(delta):
 			var data = bytes[1].get_string_from_utf8()
 			if data == "":
 				return
-				
-			for line in data.split("\n"):
+			
+			recv_buffer += data
+			var lines = recv_buffer.split("\n")
+			var last_index = lines.size() - 1
+			for i in range(last_index):
+				var line = lines[i]
 				if line.is_empty():
 					continue
-				
 				var json = JSON.new()
 				if json.parse(line) == OK:
 					_handle_server_message(json.data)
+			# Preserve any partial line without newline
+			recv_buffer = lines[last_index]
 	elif status == StreamPeerTCP.STATUS_NONE and connected:
 		connected = false
 		print("[NETWORK] Disconnected!")

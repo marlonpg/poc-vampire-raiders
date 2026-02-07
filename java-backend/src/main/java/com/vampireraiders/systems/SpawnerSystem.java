@@ -20,6 +20,7 @@ public class SpawnerSystem {
     private long lastSpawnTime;
     private final Random random = new Random();
     private static final int PERF_TEST_ENEMY_COUNT = 200;
+    private static final int DUNGEON_ENEMIES_PER_LEVEL = 5;
     private EnemyTemplate spiderTemplate;
 
     public SpawnerSystem(GameState gameState) {
@@ -45,6 +46,10 @@ public class SpawnerSystem {
     public void spawnInitialEnemiesForPerfTest() {
         // Performance test: spawn 200 enemies at startup
         spawnInitialEnemies();
+    }
+
+    public void spawnInitialEnemiesForMap(String mapId) {
+        spawnInitialEnemiesForMap(mapId, DUNGEON_ENEMIES_PER_LEVEL);
     }
     
     private void spawnInitialEnemies() {
@@ -112,6 +117,43 @@ public class SpawnerSystem {
         }
         
         Logger.debug("Performance test enemies spawned in map zones: " + gameState.getEnemyCount());
+    }
+
+    private void spawnInitialEnemiesForMap(String mapId, int perLevel) {
+        if (mapId == null || mapId.isEmpty()) {
+            return;
+        }
+
+        Tilemap tilemap = GameWorld.getTilemap(mapId);
+        if (tilemap == null) {
+            Logger.warn("Tilemap not loaded for map: " + mapId);
+            return;
+        }
+
+        for (int level = 1; level <= 4; level++) {
+            EnemyTemplate template = getTemplateForLevel(level);
+            if (template == null) {
+                continue;
+            }
+
+            List<Tilemap.TilePosition> spawnZones = tilemap.getSpawnZones(level);
+            if (spawnZones.isEmpty()) {
+                spawnZones = tilemap.getTilesOfType(TileType.PVE);
+            }
+
+            if (spawnZones.isEmpty()) {
+                continue;
+            }
+
+            for (int i = 0; i < perLevel; i++) {
+                Tilemap.TilePosition pos = spawnZones.get(random.nextInt(spawnZones.size()));
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, template, mapId);
+                enemy.setSpawnLevel(level);
+                gameState.addEnemy(enemy);
+            }
+        }
+
+        Logger.info("Seeded dungeon enemies for map " + mapId + " (" + (perLevel * 4) + " total)");
     }
 
     public void update() {

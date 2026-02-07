@@ -30,6 +30,7 @@ public class VampireRaidersServer implements NetworkEventListener {
         this.networkManager = new NetworkManager(config.getPort(), gameWorld);
         this.stateSync = new StateSync(networkManager);
         this.gameWorld.setStateSync(stateSync);  // Set the StateSync reference in GameWorld
+        this.gameWorld.setSpawnerSystem(spawnerSystem);
         this.gameLoop = new GameLoop(gameWorld, spawnerSystem, stateSync, config.getTickRate());
         
         networkManager.addEventListener(this);

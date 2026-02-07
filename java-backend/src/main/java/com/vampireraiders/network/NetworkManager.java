@@ -290,6 +290,11 @@ public class NetworkManager {
 
         // Update position for spawn and mark authenticated
         player.setInputDirection(0, 0);
+        player.setMapId("main");
+        if (!GameWorld.isWalkable(player.getX(), player.getY(), player.getMapId())) {
+            Logger.warn("Spawn position not walkable for " + username + ", resetting to safe zone");
+            player.setPosition(safeZoneCenterX, safeZoneCenterY);
+        }
         client.setPlayer(player);
         client.setAuthenticated(true);
         
