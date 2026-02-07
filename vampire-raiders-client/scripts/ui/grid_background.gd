@@ -19,6 +19,8 @@ const TILE_PV4 = "PV4"  # Goblin
 
 const PORTAL_COLOR = Color(0.2, 0.6, 1.0, 0.9)
 const PORTAL_RADIUS = 20.0
+const PORTAL_TEXTURE = preload("res://assets/map/portal-180.png")
+const PORTAL_SIZE = 180.0
 
 # Colors for each tile type
 const TILE_COLORS = {
@@ -81,7 +83,12 @@ func _draw() -> void:
 
 	# Draw portals
 	for portal_pos in portal_positions:
-		draw_circle(portal_pos, PORTAL_RADIUS, PORTAL_COLOR)
+		if PORTAL_TEXTURE:
+			var size = Vector2(PORTAL_SIZE, PORTAL_SIZE)
+			var top_left = portal_pos - size * 0.5
+			draw_texture_rect(PORTAL_TEXTURE, Rect2(top_left, size), false)
+		else:
+			draw_circle(portal_pos, PORTAL_RADIUS, PORTAL_COLOR)
 	
 	# Draw grid lines (only on map area)
 	var start_x = int((cam_pos.x - screen_size.x / zoom) / GRID_SIZE) * GRID_SIZE
