@@ -61,11 +61,12 @@ public class GameWorld {
     }
 
     private void initializeDungeonPortals() {
-        List<String> dungeonFiles = List.of(
+        List<String> dungeonFiles = new ArrayList<>(List.of(
             "dungeon-1.txt",
             "dungeon-2.txt",
             "dungeon-3.txt"
-        );
+        ));
+        java.util.Collections.shuffle(dungeonFiles, random);
 
         List<Tilemap.TilePosition> portalTiles = tilemap.getPortalCandidates();
         if (portalTiles.isEmpty()) {
@@ -76,7 +77,7 @@ public class GameWorld {
         for (int i = 0; i < PORTAL_COUNT && !portalTiles.isEmpty(); i++) {
             int index = random.nextInt(portalTiles.size());
             Tilemap.TilePosition pos = portalTiles.remove(index);
-            String dungeonFile = dungeonFiles.get(random.nextInt(dungeonFiles.size()));
+            String dungeonFile = dungeonFiles.get(i % dungeonFiles.size());
             String mapId = dungeonFile.replace(".txt", "");
 
             if (!mapInstances.containsKey(mapId)) {

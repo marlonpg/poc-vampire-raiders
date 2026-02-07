@@ -72,7 +72,7 @@ public class SpawnerSystem {
             List<Tilemap.TilePosition> pv1Zones = tilemap.getSpawnZones(1);
             for (int i = 0; i < spidersToSpawn && !pv1Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv1Zones.get(random.nextInt(pv1Zones.size()));
-                Enemy enemy = new Enemy(pos.worldX, pos.worldY, spiderTemplate);
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, spiderTemplate, "main");
                 enemy.setSpawnLevel(1);
                 gameState.addEnemy(enemy);
             }
@@ -83,7 +83,7 @@ public class SpawnerSystem {
             List<Tilemap.TilePosition> pv2Zones = tilemap.getSpawnZones(2);
             for (int i = 0; i < wormsToSpawn && !pv2Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv2Zones.get(random.nextInt(pv2Zones.size()));
-                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wormTemplate);
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wormTemplate, "main");
                 enemy.setSpawnLevel(2);
                 gameState.addEnemy(enemy);
             }
@@ -94,7 +94,7 @@ public class SpawnerSystem {
             List<Tilemap.TilePosition> pv3Zones = tilemap.getSpawnZones(3);
             for (int i = 0; i < dogsToSpawn && !pv3Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv3Zones.get(random.nextInt(pv3Zones.size()));
-                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wildDogTemplate);
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, wildDogTemplate, "main");
                 enemy.setSpawnLevel(3);
                 gameState.addEnemy(enemy);
             }
@@ -105,7 +105,7 @@ public class SpawnerSystem {
             List<Tilemap.TilePosition> pv4Zones = tilemap.getSpawnZones(4);
             for (int i = 0; i < houndsToSpawn && !pv4Zones.isEmpty(); i++) {
                 Tilemap.TilePosition pos = pv4Zones.get(random.nextInt(pv4Zones.size()));
-                Enemy enemy = new Enemy(pos.worldX, pos.worldY, houndTemplate);
+                Enemy enemy = new Enemy(pos.worldX, pos.worldY, houndTemplate, "main");
                 enemy.setSpawnLevel(4);
                 gameState.addEnemy(enemy);
             }
@@ -127,11 +127,12 @@ public class SpawnerSystem {
             return;
         }
 
-        if (gameState.getPlayerCount() == 0) {
+        String mapId = getRandomActiveMapId();
+        if (mapId == null) {
             return;
         }
 
-        Tilemap tilemap = GameWorld.getTilemap();
+        Tilemap tilemap = GameWorld.getTilemap(mapId);
         if (tilemap == null) {
             return;
         }
@@ -145,12 +146,32 @@ public class SpawnerSystem {
             
             if (template != null) {
                 float[] pos = getRandomSpawnPosition(tilemap, level);
-                Enemy enemy = new Enemy(pos[0], pos[1], template);
+                Enemy enemy = new Enemy(pos[0], pos[1], template, mapId);
                 enemy.setSpawnLevel(level);
                 gameState.addEnemy(enemy);
-                Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName() + " Level: " + level);
+                Logger.debug("Enemy spawned: ID " + enemy.getId() + " Template: " + enemy.getTemplateName() + " Level: " + level + " Map: " + mapId);
             }
         }
+    }
+
+    private String getRandomActiveMapId() {
+        if (gameState.getPlayerCount() == 0) {
+            return null;
+        }
+
+        List<String> activeMaps = new java.util.ArrayList<>();
+        for (com.vampireraiders.game.Player player : gameState.getAllPlayers().values()) {
+            String mapId = player.getMapId();
+            if (mapId != null && !mapId.isEmpty() && !activeMaps.contains(mapId)) {
+                activeMaps.add(mapId);
+            }
+        }
+
+        if (activeMaps.isEmpty()) {
+            return null;
+        }
+
+        return activeMaps.get(random.nextInt(activeMaps.size()));
     }
     
     private EnemyTemplate getTemplateForLevel(int level) {
